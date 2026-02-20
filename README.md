@@ -113,6 +113,44 @@ The scripts are designed to be called by an AI agent in a loop:
 
 Works with any tool-using AI that supports image input. The `find` result is cached for 30 seconds, so rapid screenshot→tap→screenshot cycles are fast.
 
+## MCP Server
+
+An [MCP](https://modelcontextprotocol.io) server wraps the bash scripts so any MCP client (Claude Code, Claude Desktop, etc.) can call them as native tools — including returning screenshots as inline images.
+
+### Setup
+
+```bash
+cd mcp-server
+npm install && npm run build
+```
+
+### Claude Code Configuration
+
+Add to `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "iphone-control": {
+      "command": "node",
+      "args": ["/path/to/iphone-control/mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+### MCP Tools
+
+| Tool | Params | Returns |
+|------|--------|---------|
+| `find_window` | — | JSON `{id, x, y, width, height}` |
+| `screenshot` | — | PNG image (inline, AI-visible) |
+| `tap` | `x, y` | Confirmation text |
+| `swipe` | `x1, y1, x2, y2, duration_ms?` | Confirmation text |
+| `type_text` | `text, x?, y?` | Confirmation text |
+
+The `screenshot` tool returns the image directly as base64-encoded PNG content, so multimodal AI models can see and analyze the iPhone screen without any file path juggling.
+
 ## Permissions Setup
 
 Your terminal app needs two permissions. macOS will prompt on first use, or set them manually:
