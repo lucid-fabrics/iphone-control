@@ -89,6 +89,12 @@ brew install cliclick
 | `tap` | `<x> <y>` | Tap at coordinates |
 | `swipe` | `<x1> <y1> <x2> <y2> [ms]` | Swipe between two points |
 | `type` | `"text" [x y]` | Type text, optionally into a tapped field |
+| `open-app` | `"Name" [--spotlight]` | Open app by name (registry-first, Spotlight fallback) |
+| `map-apps` | `[max_pages]` | OCR scan of home screen pages (stdout only) |
+| `registry-scan` | `[max_pages]` | Scan home screen and save to persistent registry |
+| `registry-lookup` | `<name>` | Look up app position from registry |
+| `registry-invalidate` | — | Delete the registry file |
+| `registry-list` | — | Show cached registry contents |
 
 ## Coordinates
 
@@ -112,6 +118,77 @@ The scripts are designed to be called by an AI agent in a loop:
 ```
 
 Works with any tool-using AI that supports image input. The `find` result is cached for 30 seconds, so rapid screenshot→tap→screenshot cycles are fast.
+
+## App Registry
+
+The app registry scans your home screen once and caches every app's name, page, and tap coordinates. Subsequent `open-app` calls use the cached data to navigate directly — no Spotlight delay.
+
+### How it works
+
+```
+open-app "Gmail"
+  ├─ Registry lookup → found on page 2
+  │   ├─ Dimensions match current window → navigate + tap (~0.5s)
+  │   └─ Dimensions mismatch → invalidate registry → Spotlight fallback
+  └─ Not found → Spotlight fallback (~1.5s)
+```
+
+### Quick start
+
+```bash
+# 1. Scan home screen pages (writes ~/.iphone-control/app-registry.json)
+./iphone-control.sh registry-scan
+
+# 2. Open an app (uses registry, falls back to Spotlight)
+./iphone-control.sh open-app "Gmail"
+
+# 3. Force Spotlight (bypass registry)
+./iphone-control.sh open-app "Gmail" --spotlight
+
+# 4. Look up an app's position
+./iphone-control.sh registry-lookup "Settings"
+# → {"name":"Settings","page":1,"x":100,"y":200,"content_width":402,"content_height":874}
+
+# 5. List all cached apps
+./iphone-control.sh registry-list
+
+# 6. Force rescan (e.g. after rearranging apps)
+./iphone-control.sh registry-invalidate
+./iphone-control.sh registry-scan
+```
+
+### Registry file
+
+Stored at `~/.iphone-control/app-registry.json`:
+
+```json
+{
+  "version": 1,
+  "scanned_at": "2026-02-20T16:00:00Z",
+  "total_pages": 4,
+  "content_width": 402,
+  "content_height": 874,
+  "apps": [
+    {"name": "Settings", "page": 1, "x": 100, "y": 200},
+    {"name": "Gmail", "page": 2, "x": 300, "y": 400}
+  ]
+}
+```
+
+### Invalidation
+
+| Trigger | Detection | Action |
+|---------|-----------|--------|
+| Window resized | `content_width`/`content_height` mismatch | Auto-invalidate, Spotlight fallback |
+| Apps rearranged | Manual | Run `registry-scan` to overwrite |
+| Registry missing | Lookup exits 1 | Spotlight fallback |
+
+### Performance
+
+| Method | Page 1 app | Page 3 app |
+|--------|-----------|-----------|
+| Spotlight (current) | ~1.5s | ~1.5s |
+| Registry | ~0.5s | ~1.1s |
 
 ## MCP Server
 
@@ -148,6 +225,13 @@ Add to `.claude/settings.json`:
 | `tap` | `x, y` | Confirmation text |
 | `swipe` | `x1, y1, x2, y2, duration_ms?` | Confirmation text |
 | `type_text` | `text, x?, y?` | Confirmation text |
+| `open_app` | `name, method?` | Opens app. `method`: `"auto"` (default, registry→Spotlight) or `"spotlight"` |
+| `scan_apps` | `max_pages?` | Scans home screen, saves registry, returns full registry JSON |
+| `list_apps` | — | Returns cached registry (no rescan) |
+| `map_apps` | `max_pages?` | Scans home screen via OCR + saves to registry |
+| `home` | — | Go to home screen |
+| `app_switcher` | — | Open app switcher |
+| `status` | — | Check iPhone Mirroring connection |
 
 The `screenshot` tool returns the image directly as base64-encoded PNG content, so multimodal AI models can see and analyze the iPhone screen without any file path juggling.
 
@@ -178,6 +262,9 @@ Your terminal app needs two permissions. macOS will prompt on first use, or set 
 | `tap.sh` | Translates relative→absolute coords, then `cliclick c:X,Y` |
 | `swipe.sh` | `cliclick dd:` → 10 interpolated `m:` moves → `du:` for smooth gesture |
 | `type-text.sh` | Optional `tap.sh` call, then `cliclick t:"text"` |
+| `open-app.sh` | Registry lookup → page navigation + tap, Spotlight fallback |
+| `registry.sh` | Wraps `map-apps.sh`, persists results to `~/.iphone-control/app-registry.json` |
+| `map-apps.sh` | Swipes through home pages, OCR via Swift helper, outputs JSON to stdout |
 
 ## License
 
