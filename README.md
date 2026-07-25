@@ -6,6 +6,18 @@ macOS Sequoia introduced [iPhone Mirroring](https://support.apple.com/en-us/1051
 
 The killer use case? Hook it up to a multimodal AI (Claude, GPT-4V) and let the AI operate your phone.
 
+<p align="center">
+  <a href="https://github.com/sponsors/lucid-fabrics">
+    <img alt="Sponsor on GitHub" src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github&logoColor=white">
+  </a>
+  <a href="https://ko-fi.com/lucidfabrics">
+    <img alt="Support on Ko-fi" src="https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=ko-fi&logoColor=white">
+  </a>
+  <a href="https://buymeacoffee.com/lucidfabrics">
+    <img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black">
+  </a>
+</p>
+
 ```
 ┌─────────────────────────────┐
 │  AI Agent (Claude, etc.)    │
@@ -285,6 +297,22 @@ Your terminal app needs two permissions. macOS will prompt on first use, or set 
 | `open-app.sh` | Registry lookup, page navigation + tap, Spotlight fallback |
 | `registry.sh` | Wraps `map-apps.sh`, persists results to `~/.iphone-control/app-registry.json` |
 | `map-apps.sh` | Swipes through home pages, OCR via Swift helper (native res, converted to points), outputs JSON to stdout |
+
+## Support
+
+This project is free and open source, built and maintained in spare time. If it saves you time, consider supporting it:
+
+<p align="center">
+  <a href="https://github.com/sponsors/lucid-fabrics">
+    <img alt="Sponsor on GitHub" src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github&logoColor=white">
+  </a>
+  <a href="https://ko-fi.com/lucidfabrics">
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi">
+  </a>
+  <a href="https://buymeacoffee.com/lucidfabrics">
+    <img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black">
+  </a>
+</p>
 
 ## License
 
