@@ -1,0 +1,94 @@
+import Foundation
+
+struct ToolDefinitions {
+    static let all: [[String: Any]] = [
+        tool("find_window",
+             description: "Locate the iPhone Mirroring window. Returns JSON with window bounds and content bounds (iOS screen area inside bezel).",
+             properties: [:]),
+
+        tool("screenshot",
+             description: "Take a screenshot of the iPhone screen. Returns the image directly.",
+             properties: [:]),
+
+        tool("tap",
+             description: "Tap at coordinates relative to the iPhone content area.",
+             properties: [
+                "x": prop("number", "X coordinate"),
+                "y": prop("number", "Y coordinate"),
+             ],
+             required: ["x", "y"]),
+
+        tool("swipe",
+             description: "Swipe from (x1,y1) to (x2,y2) on the iPhone content area.",
+             properties: [
+                "x1": prop("number", "Start X"),
+                "y1": prop("number", "Start Y"),
+                "x2": prop("number", "End X"),
+                "y2": prop("number", "End Y"),
+                "duration_ms": prop("number", "Swipe duration in ms (default 300)"),
+             ],
+             required: ["x1", "y1", "x2", "y2"]),
+
+        tool("type_text",
+             description: "Type text into the iPhone. Optionally tap a field first.",
+             properties: [
+                "text": prop("string", "Text to type"),
+                "x": prop("number", "X coordinate to tap before typing"),
+                "y": prop("number", "Y coordinate to tap before typing"),
+             ],
+             required: ["text"]),
+
+        tool("open_app",
+             description: "Open an app on the iPhone by name. Uses registry (fast) with Spotlight fallback. Run scan_apps first to populate the registry.",
+             properties: [
+                "name": prop("string", "App name to open (e.g. 'Settings', 'Safari')"),
+                "method": propEnum("string", "Launch method", ["auto", "spotlight"]),
+             ],
+             required: ["name"]),
+
+        tool("home",
+             description: "Go to the iPhone home screen via the View menu.",
+             properties: [:]),
+
+        tool("app_switcher",
+             description: "Open the iPhone app switcher via the View menu.",
+             properties: [:]),
+
+        tool("status",
+             description: "Check if iPhone Mirroring is connected and active.",
+             properties: [:]),
+
+        tool("scan_apps",
+             description: "Scan all iPhone home screen pages via OCR and save results to persistent registry. Returns full registry JSON.",
+             properties: [
+                "max_pages": prop("number", "Max home screen pages to scan (default 10)"),
+             ]),
+
+        tool("list_apps",
+             description: "List all apps from the cached registry. Returns the saved registry data without rescanning.",
+             properties: [:]),
+    ]
+
+    private static func prop(_ type: String, _ description: String) -> [String: Any] {
+        ["type": type, "description": description]
+    }
+
+    private static func propEnum(_ type: String, _ description: String, _ values: [String]) -> [String: Any] {
+        ["type": type, "description": description, "enum": values]
+    }
+
+    private static func tool(_ name: String, description: String, properties: [String: Any], required: [String] = []) -> [String: Any] {
+        var schema: [String: Any] = [
+            "type": "object",
+            "properties": properties,
+        ]
+        if !required.isEmpty {
+            schema["required"] = required
+        }
+        return [
+            "name": name,
+            "description": description,
+            "input_schema": schema,
+        ]
+    }
+}
