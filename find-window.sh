@@ -19,7 +19,7 @@ if [[ ! -x "$HELPER" ]] || [[ "$HELPER_SRC" -nt "$HELPER" ]]; then
     }
 fi
 
-# Get window info from compiled helper (fast — <10ms)
+# Get window info from compiled helper (fast - <10ms)
 win_info=$("$HELPER" 2>/dev/null) || {
     echo '{"error":"iPhone Mirroring window not found. Is iPhone Mirroring open?"}' >&2
     exit 1
@@ -57,8 +57,9 @@ const pw = img.pixelsWide;
 const ph = img.pixelsHigh;
 
 function alpha(px, py) {
-    const c = img.colorAtXY(px, ph - 1 - py);
-    // alphaComponent is color-space-independent — avoids null from colorUsingColorSpaceName on P3/wide-gamut displays
+    // colorAtXY is top-left origin, same as the scan loops - no flip
+    const c = img.colorAtXY(px, py);
+    // alphaComponent is color-space-independent - avoids null from colorUsingColorSpaceName on P3/wide-gamut displays
     return Math.round(ObjC.unwrap(c.alphaComponent) * 255);
 }
 
@@ -74,12 +75,15 @@ for (let y = ph - 1; y >= 0; y--) { if (alpha(midX, y) === 255) { bottom = y; br
 
 // Validate scan found real content bounds
 if (left < 0 || right < 0 || top < 0 || bottom < 0 || left >= right || top >= bottom) {
-    throw new Error('Alpha scan found no opaque content region — midpoint row/column may be transparent');
+    throw new Error('Alpha scan found no opaque content region - midpoint row/column may be transparent');
 }
 
-// screencapture -l captures at display native resolution (2x on Retina)
-// Divide pixel offsets by scale to get point offsets for coordinate math
-const scale = ${scale};
+// screencapture -l captures at the window's backing scale (2x on Retina).
+// Measure scale from this capture: pixel width / window point width.
+// Authoritative even when the window straddles displays or the arrangement has gaps.
+// Requires -o (no shadow) on screencapture, or shadow pixels corrupt the ratio.
+const m = Math.round(pw / ${ww});
+const scale = (isFinite(m) && m >= 1) ? m : 1;
 const cw = Math.round((right - left + 1) / scale);
 const ch = Math.round((bottom - top + 1) / scale);
 const cx = ${wx} + Math.round(left / scale);
@@ -95,7 +99,7 @@ if [[ -z "$result" ]]; then
     exit 1
 fi
 
-# Write cache atomically — write key first so a reader that sees the key always has the file
+# Write cache atomically - write key first so a reader that sees the key always has the file
 tmp_cache="/tmp/iphone-mirror-window-$$.json"
 printf '%s\n' "$result" > "$tmp_cache"
 mv "$tmp_cache" "$CACHE_FILE"
