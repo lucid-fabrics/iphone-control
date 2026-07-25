@@ -43,6 +43,7 @@ The killer use case? Hook it up to a multimodal AI (Claude, GPT-4V) and let the 
 - **macOS 15** (Sequoia) or later
 - **iPhone Mirroring** open and connected
 - **Terminal permissions**: Accessibility + Screen Recording (System Settings > Privacy & Security)
+- **Xcode Command Line Tools** (`xcode-select --install`): the Swift helpers auto-compile on first run
 
 No third-party binaries needed: input is delivered natively via JXA/CoreGraphics.
 
@@ -58,7 +59,7 @@ cd iphone-control
 ```bash
 # Locate the iPhone Mirroring window
 ./iphone-control.sh find
-# → {"id": 1234, "x": 100, "y": 200, "width": 393, "height": 852}
+# → {"x":-1080,"y":-49,"width":410,"height":874,"content_x":-1070,"content_y":-40,"content_width":390,"content_height":844,"window_id":1234,"scale":2}
 
 # Capture a screenshot
 ./iphone-control.sh screenshot
@@ -84,12 +85,16 @@ cd iphone-control
 
 | Command | Args | Description |
 |---------|------|-------------|
-| `find` | - | Returns window position + size as JSON |
-| `screenshot` | `[output_path]` | Saves iPhone screen to PNG (default: `/tmp/iphone-screen.png`) |
+| `find` | - | Returns window + content bounds, `window_id` and `scale` as JSON |
+| `screenshot` | `[--native] [output_path]` | Saves iPhone screen to PNG in point dimensions (default: `/tmp/iphone-screen.png`); `--native` keeps pixel resolution |
 | `tap` | `<x> <y>` | Tap at coordinates |
 | `swipe` | `<x1> <y1> <x2> <y2> [ms]` | Swipe between two points |
 | `type` | `"text" [x y]` | Type text, optionally into a tapped field |
+| `home` | - | Go to home screen (View menu) |
+| `app-switcher` | - | Open app switcher (View menu) |
+| `spotlight` | - | Open Spotlight search (View menu) |
 | `open-app` | `"Name" [--spotlight]` | Open app by name (registry-first, Spotlight fallback) |
+| `status` | - | Check iPhone Mirroring connection state |
 | `map-apps` | `[max_pages]` | OCR scan of home screen pages (stdout only) |
 | `registry-scan` | `[max_pages]` | Scan home screen and save to persistent registry |
 | `registry-lookup` | `<name>` | Look up app position from registry |
@@ -235,18 +240,19 @@ Add to `.claude/settings.json`:
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `find_window` | - | JSON `{id, x, y, width, height}` |
-| `screenshot` | - | PNG image (inline, AI-visible) |
+| `find_window` | - | JSON: window + content bounds, `window_id`, `scale` (global points, negative on secondary displays) |
+| `screenshot` | - | PNG image (inline, AI-visible), point-normalized |
 | `tap` | `x, y` | Confirmation text |
 | `swipe` | `x1, y1, x2, y2, duration_ms?` | Confirmation text |
 | `type_text` | `text, x?, y?` | Confirmation text |
-| `open_app` | `name, method?` | Opens app. `method`: `"auto"` (default, registry→Spotlight) or `"spotlight"` |
-| `scan_apps` | `max_pages?` | Scans home screen, saves registry, returns full registry JSON |
-| `list_apps` | - | Returns cached registry (no rescan) |
-| `map_apps` | `max_pages?` | Scans home screen via OCR + saves to registry |
+| `open_app` | `name, method?` | Opens app. `method`: `"auto"` (default, registry-first) or `"spotlight"` |
 | `home` | - | Go to home screen |
 | `app_switcher` | - | Open app switcher |
+| `spotlight` | - | Open Spotlight search |
 | `status` | - | Check iPhone Mirroring connection |
+| `scan_apps` | `max_pages?` | Scans home screen, saves registry, returns full registry JSON |
+| `registry_invalidate` | - | Deletes the cached registry, forcing a rescan |
+| `list_apps` | - | Returns cached registry (no rescan) |
 
 The `screenshot` tool returns the image directly as base64-encoded PNG content, so multimodal AI models can see and analyze the iPhone screen without any file path juggling. The PNG is point-normalized: its pixel dimensions equal the tap/swipe coordinate space, so a model can tap exactly what it sees on any display or Retina scale.
 
