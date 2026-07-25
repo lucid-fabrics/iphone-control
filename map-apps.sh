@@ -64,7 +64,7 @@ for (( page=1; page<=MAX_PAGES; page++ )); do
     rm -f "$tmp_img"
 
     # Filter for app labels: short text in the app grid zone
-    while IFS='|' read -r text px py pw ph; do
+    while IFS='|' read -r text px py pw _; do
         [[ -z "$text" ]] && continue
 
         # OCR ran on the native-resolution capture; convert pixel coords to points

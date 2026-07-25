@@ -27,5 +27,8 @@ jobs:
         working-directory: mcp-server
         run: npm test
 
+      - name: Install shellcheck
+        run: brew install shellcheck
+
       - name: Run shellcheck
-        run: shellcheck *.sh helpers/common.sh
+        run: shellcheck -x *.sh

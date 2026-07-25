@@ -15,9 +15,13 @@ test-mcp:
 	cd mcp-server && npx vitest run
 
 # Lint all shell scripts with shellcheck
+# helpers/common.sh is intentionally excluded as a standalone target: it is a
+# sourced-only library, so checking it in isolation flags every constant as
+# unused. -x pulls it into each script's analysis via source, where real usage
+# is visible.
 lint:
 	@echo "=== Linting shell scripts ==="
-	shellcheck -x *.sh helpers/common.sh
+	shellcheck -x *.sh
 
 # Build everything
 build: build-helpers build-mcp
