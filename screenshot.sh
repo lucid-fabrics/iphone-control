@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
 # Capture a screenshot of the iPhone Mirroring window (content area only).
-# Uses window ID capture — no desktop bleed, works with overlapping windows.
+# Uses window ID capture - no desktop bleed, works with overlapping windows.
+# Usage: screenshot.sh [--native] [output_path]
+#   Default output is normalized to POINT dimensions (content_width x content_height),
+#   so image pixels map 1:1 onto tap/swipe coordinates on any display, any Retina scale.
+#   --native keeps the display's native pixel resolution (2x on Retina), for OCR.
 # Output: path to the saved PNG
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/helpers/common.sh"
+NATIVE=0
+if [[ "${1:-}" == "--native" ]]; then
+    NATIVE=1
+    shift
+fi
 OUTPUT="${1:-/tmp/iphone-screen.png}"
 
 # Get window info (includes content bounds and window_id)
@@ -33,5 +42,15 @@ sips --cropToHeightWidth "$crop_h" "$crop_w" --cropOffset "$offset_y" "$offset_x
     rm -f "$OUTPUT"
     exit 1
 }
+
+# Normalize to point dimensions: one coordinate space for screenshots, OCR, registry, taps.
+# Exact 1/SCALE resample (crop dims are CONTENT * SCALE), so no aspect drift.
+if (( ! NATIVE && SCALE > 1 )); then
+    sips --resampleHeightWidth "$CONTENT_H" "$CONTENT_W" "$OUTPUT" >/dev/null || {
+        echo "Error: Failed to resample screenshot (sips failed)" >&2
+        rm -f "$OUTPUT"
+        exit 1
+    }
+fi
 
 echo "$OUTPUT"
