@@ -3,3 +3,7 @@
 .DS_Store
 mcp-server/node_modules/
 mcp-server/dist/
+helpers/get-window-id
+helpers/ocr-image
+*.xcuserstate
+xcuserdata/

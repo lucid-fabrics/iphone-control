@@ -1,0 +1,406 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA000001 /* CompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000001; };
+		AA000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002; };
+		AA000003 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000003; };
+		AA000004 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000004; };
+		AA000005 /* SuggestionChipsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000005; };
+		AA000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000006; };
+		AA000007 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000007; };
+		AA000008 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000008; };
+		AA000009 /* ToolDefinitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000009; };
+		AA000010 /* ClaudeAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000010; };
+		AA000011 /* OllamaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000011; };
+		AA000012 /* AIServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000012; };
+		AA000013 /* ScriptRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000013; };
+		AA000014 /* ToolExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000014; };
+		AA000015 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000015; };
+		AA000016 /* WindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000016; };
+		AA000017 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000017; };
+		AA000018 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB000018; };
+		AA000019 /* ModelFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000021; };
+		AA000020 /* OpenRouterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000022; };
+		AA000021 /* ClaudeCodeAuthHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000023; };
+		AA000022 /* InputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000024; };
+		AA000023 /* MiniMaxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000025; };
+		AA000030 /* SSEStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000030; };
+		AA000031 /* AIServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000031; };
+		AA000032 /* ToolOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000032; };
+		AA000033 /* AccessibilityHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000033; };
+		AA000034 /* ChatInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000034; };
+		AA000035 /* ChatToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000035; };
+		AA000036 /* ProviderSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000036; };
+		AA000037 /* ModelConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000037; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AB000001 /* CompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionApp.swift; sourceTree = "<group>"; };
+		AB000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		AB000003 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		AB000004 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
+		AB000005 /* SuggestionChipsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionChipsView.swift; sourceTree = "<group>"; };
+		AB000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AB000007 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		AB000008 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
+		AB000009 /* ToolDefinitions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolDefinitions.swift; sourceTree = "<group>"; };
+		AB000010 /* ClaudeAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAPIService.swift; sourceTree = "<group>"; };
+		AB000011 /* OllamaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaService.swift; sourceTree = "<group>"; };
+		AB000012 /* AIServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceProtocol.swift; sourceTree = "<group>"; };
+		AB000013 /* ScriptRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptRunner.swift; sourceTree = "<group>"; };
+		AB000014 /* ToolExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolExecutor.swift; sourceTree = "<group>"; };
+		AB000015 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		AB000016 /* WindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManager.swift; sourceTree = "<group>"; };
+		AB000017 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		AB000018 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AB000019 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AB000020 /* iPhoneCompanion.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iPhoneCompanion.entitlements; sourceTree = "<group>"; };
+		AB000021 /* ModelFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelFetcher.swift; sourceTree = "<group>"; };
+		AB000022 /* OpenRouterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenRouterService.swift; sourceTree = "<group>"; };
+		AB000023 /* ClaudeCodeAuthHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeAuthHelper.swift; sourceTree = "<group>"; };
+		AB000024 /* InputController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputController.swift; sourceTree = "<group>"; };
+		AB000025 /* MiniMaxService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMaxService.swift; sourceTree = "<group>"; };
+		AB000030 /* SSEStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEStreamParser.swift; sourceTree = "<group>"; };
+		AB000031 /* AIServiceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceFactory.swift; sourceTree = "<group>"; };
+		AB000032 /* ToolOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolOrchestrator.swift; sourceTree = "<group>"; };
+		AB000033 /* AccessibilityHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHelper.swift; sourceTree = "<group>"; };
+		AB000034 /* ChatInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputView.swift; sourceTree = "<group>"; };
+		AB000035 /* ChatToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatToolbarView.swift; sourceTree = "<group>"; };
+		AB000036 /* ProviderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSettingsView.swift; sourceTree = "<group>"; };
+		AB000037 /* ModelConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelConfigView.swift; sourceTree = "<group>"; };
+		AB000099 /* iPhoneCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iPhoneCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AC000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AD000001 = {
+			isa = PBXGroup;
+			children = (
+				AD000002 /* iPhoneCompanion */,
+				AB000018 /* Assets.xcassets */,
+				AD000099 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AD000002 /* iPhoneCompanion */ = {
+			isa = PBXGroup;
+			children = (
+				AB000019 /* Info.plist */,
+				AB000020 /* iPhoneCompanion.entitlements */,
+				AD000003 /* App */,
+				AD000004 /* Views */,
+				AD000005 /* Models */,
+				AD000006 /* Services */,
+				AD000007 /* Utilities */,
+			);
+			path = iPhoneCompanion;
+			sourceTree = "<group>";
+		};
+		AD000003 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AB000001 /* CompanionApp.swift */,
+				AB000002 /* AppDelegate.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		AD000004 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AB000003 /* ChatView.swift */,
+				AB000034 /* ChatInputView.swift */,
+				AB000035 /* ChatToolbarView.swift */,
+				AB000004 /* MessageBubbleView.swift */,
+				AB000005 /* SuggestionChipsView.swift */,
+				AB000006 /* SettingsView.swift */,
+				AB000036 /* ProviderSettingsView.swift */,
+				AB000037 /* ModelConfigView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AD000005 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AB000007 /* ChatMessage.swift */,
+				AB000008 /* Conversation.swift */,
+				AB000009 /* ToolDefinitions.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AD000006 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AB000010 /* ClaudeAPIService.swift */,
+				AB000011 /* OllamaService.swift */,
+				AB000012 /* AIServiceProtocol.swift */,
+				AB000013 /* ScriptRunner.swift */,
+				AB000014 /* ToolExecutor.swift */,
+				AB000021 /* ModelFetcher.swift */,
+				AB000022 /* OpenRouterService.swift */,
+				AB000024 /* InputController.swift */,
+				AB000025 /* MiniMaxService.swift */,
+				AB000030 /* SSEStreamParser.swift */,
+				AB000031 /* AIServiceFactory.swift */,
+				AB000032 /* ToolOrchestrator.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		AD000007 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				AB000015 /* KeychainHelper.swift */,
+				AB000016 /* WindowManager.swift */,
+				AB000017 /* Constants.swift */,
+				AB000023 /* ClaudeCodeAuthHelper.swift */,
+				AB000033 /* AccessibilityHelper.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		AD000099 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AB000099 /* iPhoneCompanion.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AE000001 /* iPhoneCompanion */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AF000003 /* Build configuration list for PBXNativeTarget "iPhoneCompanion" */;
+			buildPhases = (
+				AE000002 /* Sources */,
+				AC000001 /* Frameworks */,
+				AE000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = iPhoneCompanion;
+			productName = iPhoneCompanion;
+			productReference = AB000099 /* iPhoneCompanion.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AE000099 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = AF000001 /* Build configuration list for PBXProject "iPhoneCompanion" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AD000001;
+			productRefGroup = AD000099 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AE000001 /* iPhoneCompanion */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AE000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000018 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AE000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000001 /* CompanionApp.swift in Sources */,
+				AA000002 /* AppDelegate.swift in Sources */,
+				AA000003 /* ChatView.swift in Sources */,
+				AA000004 /* MessageBubbleView.swift in Sources */,
+				AA000005 /* SuggestionChipsView.swift in Sources */,
+				AA000006 /* SettingsView.swift in Sources */,
+				AA000007 /* ChatMessage.swift in Sources */,
+				AA000008 /* Conversation.swift in Sources */,
+				AA000009 /* ToolDefinitions.swift in Sources */,
+				AA000010 /* ClaudeAPIService.swift in Sources */,
+				AA000011 /* OllamaService.swift in Sources */,
+				AA000012 /* AIServiceProtocol.swift in Sources */,
+				AA000013 /* ScriptRunner.swift in Sources */,
+				AA000014 /* ToolExecutor.swift in Sources */,
+				AA000015 /* KeychainHelper.swift in Sources */,
+				AA000016 /* WindowManager.swift in Sources */,
+				AA000017 /* Constants.swift in Sources */,
+				AA000019 /* ModelFetcher.swift in Sources */,
+				AA000020 /* OpenRouterService.swift in Sources */,
+				AA000021 /* ClaudeCodeAuthHelper.swift in Sources */,
+				AA000022 /* InputController.swift in Sources */,
+				AA000023 /* MiniMaxService.swift in Sources */,
+				AA000030 /* SSEStreamParser.swift in Sources */,
+				AA000031 /* AIServiceFactory.swift in Sources */,
+				AA000032 /* ToolOrchestrator.swift in Sources */,
+				AA000033 /* AccessibilityHelper.swift in Sources */,
+				AA000034 /* ChatInputView.swift in Sources */,
+				AA000035 /* ChatToolbarView.swift in Sources */,
+				AA000036 /* ProviderSettingsView.swift in Sources */,
+				AA000037 /* ModelConfigView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AF000010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AF000011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		AF000020 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = iPhoneCompanion/iPhoneCompanion.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = iPhoneCompanion/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.iphone-companion.app";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AF000021 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = iPhoneCompanion/iPhoneCompanion.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = iPhoneCompanion/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.iphone-companion.app";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AF000001 /* Build configuration list for PBXProject "iPhoneCompanion" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF000010 /* Debug */,
+				AF000011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AF000003 /* Build configuration list for PBXNativeTarget "iPhoneCompanion" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF000020 /* Debug */,
+				AF000021 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = AE000099 /* Project object */;
+}
