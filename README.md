@@ -2,7 +2,7 @@
 
 > Control your iPhone from the Mac terminal using iPhone Mirroring. Built for AI agents.
 
-macOS Sequoia introduced [iPhone Mirroring](https://support.apple.com/en-us/105112) — your iPhone screen rendered as a native Mac window. **iphone-control** turns that window into a programmable interface: find it, screenshot it, tap it, swipe it, type into it. All from bash.
+macOS Sequoia introduced [iPhone Mirroring](https://support.apple.com/en-us/105112) - your iPhone screen rendered as a native Mac window. **iphone-control** turns that window into a programmable interface: find it, screenshot it, tap it, swipe it, type into it. All from bash.
 
 The killer use case? Hook it up to a multimodal AI (Claude, GPT-4V) and let the AI operate your phone.
 
@@ -42,15 +42,15 @@ The killer use case? Hook it up to a multimodal AI (Claude, GPT-4V) and let the 
 
 - **macOS 15** (Sequoia) or later
 - **iPhone Mirroring** open and connected
-- [`cliclick`](https://github.com/BlueM/cliclick) — `brew install cliclick`
-- **Terminal permissions**: Accessibility + Screen Recording (System Settings → Privacy & Security)
+- **Terminal permissions**: Accessibility + Screen Recording (System Settings > Privacy & Security)
+
+No third-party binaries needed: input is delivered natively via JXA/CoreGraphics.
 
 ## Install
 
 ```bash
 git clone https://github.com/wmehanna/iphone-control.git
 cd iphone-control
-brew install cliclick
 ```
 
 ## Usage
@@ -84,7 +84,7 @@ brew install cliclick
 
 | Command | Args | Description |
 |---------|------|-------------|
-| `find` | — | Returns window position + size as JSON |
+| `find` | - | Returns window position + size as JSON |
 | `screenshot` | `[output_path]` | Saves iPhone screen to PNG (default: `/tmp/iphone-screen.png`) |
 | `tap` | `<x> <y>` | Tap at coordinates |
 | `swipe` | `<x1> <y1> <x2> <y2> [ms]` | Swipe between two points |
@@ -93,8 +93,8 @@ brew install cliclick
 | `map-apps` | `[max_pages]` | OCR scan of home screen pages (stdout only) |
 | `registry-scan` | `[max_pages]` | Scan home screen and save to persistent registry |
 | `registry-lookup` | `<name>` | Look up app position from registry |
-| `registry-invalidate` | — | Delete the registry file |
-| `registry-list` | — | Show cached registry contents |
+| `registry-invalidate` | - | Delete the registry file |
+| `registry-list` | - | Show cached registry contents |
 
 ## Coordinates
 
@@ -103,6 +103,20 @@ All coordinates are **relative to the iPhone screen**, not the Mac desktop.
 - `(0, 0)` = top-left corner of the iPhone Mirroring content
 - Scripts automatically convert to absolute Mac screen position
 - Run `find` to see the window dimensions for your device
+
+### Multi-display and Retina
+
+The iPhone Mirroring window can sit on **any display**, including ones left of or
+above the primary (where global Mac coordinates are negative) and displays with a
+different Retina scale. Everything is handled automatically:
+
+- Window lookup, taps and swipes use global display coordinates (sign-safe)
+- The capture scale is measured from the actual window capture, so mixed 1x/2x
+  setups and windows straddling two displays resolve correctly
+- Screenshots are normalized to **point dimensions**: 1 image pixel = 1 tap
+  coordinate, regardless of which display the window is on
+- Moving the window between displays just works; the 30s window cache
+  invalidates on any move or resize
 
 ## AI Agent Integration
 
@@ -121,7 +135,7 @@ Works with any tool-using AI that supports image input. The `find` result is cac
 
 ## App Registry
 
-The app registry scans your home screen once and caches every app's name, page, and tap coordinates. Subsequent `open-app` calls use the cached data to navigate directly — no Spotlight delay.
+The app registry scans your home screen once and caches every app's name, page, and tap coordinates. Subsequent `open-app` calls use the cached data to navigate directly - no Spotlight delay.
 
 ### How it works
 
@@ -163,7 +177,7 @@ Stored at `~/.iphone-control/app-registry.json`:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "scanned_at": "2026-02-20T16:00:00Z",
   "total_pages": 4,
   "content_width": 402,
@@ -182,6 +196,7 @@ Stored at `~/.iphone-control/app-registry.json`:
 | Window resized | `content_width`/`content_height` mismatch | Auto-invalidate, Spotlight fallback |
 | Apps rearranged | Manual | Run `registry-scan` to overwrite |
 | Registry missing | Lookup exits 1 | Spotlight fallback |
+| Registry from old version | `version` != 2 (pre point-space coords) | Lookup fails, Spotlight fallback; rescan to upgrade |
 
 ### Performance
 
@@ -192,7 +207,7 @@ Stored at `~/.iphone-control/app-registry.json`:
 
 ## MCP Server
 
-An [MCP](https://modelcontextprotocol.io) server wraps the bash scripts so any MCP client (Claude Code, Claude Desktop, etc.) can call them as native tools — including returning screenshots as inline images.
+An [MCP](https://modelcontextprotocol.io) server wraps the bash scripts so any MCP client (Claude Code, Claude Desktop, etc.) can call them as native tools - including returning screenshots as inline images.
 
 ### Setup
 
@@ -220,20 +235,20 @@ Add to `.claude/settings.json`:
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `find_window` | — | JSON `{id, x, y, width, height}` |
-| `screenshot` | — | PNG image (inline, AI-visible) |
+| `find_window` | - | JSON `{id, x, y, width, height}` |
+| `screenshot` | - | PNG image (inline, AI-visible) |
 | `tap` | `x, y` | Confirmation text |
 | `swipe` | `x1, y1, x2, y2, duration_ms?` | Confirmation text |
 | `type_text` | `text, x?, y?` | Confirmation text |
 | `open_app` | `name, method?` | Opens app. `method`: `"auto"` (default, registry→Spotlight) or `"spotlight"` |
 | `scan_apps` | `max_pages?` | Scans home screen, saves registry, returns full registry JSON |
-| `list_apps` | — | Returns cached registry (no rescan) |
+| `list_apps` | - | Returns cached registry (no rescan) |
 | `map_apps` | `max_pages?` | Scans home screen via OCR + saves to registry |
-| `home` | — | Go to home screen |
-| `app_switcher` | — | Open app switcher |
-| `status` | — | Check iPhone Mirroring connection |
+| `home` | - | Go to home screen |
+| `app_switcher` | - | Open app switcher |
+| `status` | - | Check iPhone Mirroring connection |
 
-The `screenshot` tool returns the image directly as base64-encoded PNG content, so multimodal AI models can see and analyze the iPhone screen without any file path juggling.
+The `screenshot` tool returns the image directly as base64-encoded PNG content, so multimodal AI models can see and analyze the iPhone screen without any file path juggling. The PNG is point-normalized: its pixel dimensions equal the tap/swipe coordinate space, so a model can tap exactly what it sees on any display or Retina scale.
 
 ## Permissions Setup
 
@@ -247,7 +262,6 @@ Your terminal app needs two permissions. macOS will prompt on first use, or set 
 | Problem | Solution |
 |---------|----------|
 | `iPhone Mirroring window not found` | Open the iPhone Mirroring app on your Mac |
-| `cliclick not found` | `brew install cliclick` |
 | Taps land in the wrong spot | Run `find` to refresh window position (it may have moved) |
 | Screenshot is blank or fails | Grant Screen Recording permission to your terminal |
 | Clicks don't register | Grant Accessibility permission to your terminal |
@@ -257,14 +271,14 @@ Your terminal app needs two permissions. macOS will prompt on first use, or set 
 
 | Script | Mechanism |
 |--------|-----------|
-| `find-window.sh` | JXA + `CGWindowListCopyWindowInfo` to find the "iPhone Mirroring" window |
-| `screenshot.sh` | `screencapture -R x,y,w,h` to capture just that region |
-| `tap.sh` | Translates relative→absolute coords, then `cliclick c:X,Y` |
-| `swipe.sh` | `cliclick dd:` → 10 interpolated `m:` moves → `du:` for smooth gesture |
-| `type-text.sh` | Optional `tap.sh` call, then `cliclick t:"text"` |
-| `open-app.sh` | Registry lookup → page navigation + tap, Spotlight fallback |
+| `find-window.sh` | Swift helper (`CGWindowListCopyWindowInfo`) + window-ID capture + alpha scan for exact content bounds; measures the Retina scale from the capture itself |
+| `screenshot.sh` | `screencapture -x -l <window_id>` (window ID, works on any display), crops to content, normalizes to point dimensions (`--native` keeps pixel resolution) |
+| `tap.sh` | Translates relative to absolute coords, then native `CGEventPost` mouse down/up |
+| `swipe.sh` | `CGEventPost` drag: mouse down, interpolated moves, mouse up |
+| `type-text.sh` | Optional `tap.sh` call, then System Events `keystroke` via JXA |
+| `open-app.sh` | Registry lookup, page navigation + tap, Spotlight fallback |
 | `registry.sh` | Wraps `map-apps.sh`, persists results to `~/.iphone-control/app-registry.json` |
-| `map-apps.sh` | Swipes through home pages, OCR via Swift helper, outputs JSON to stdout |
+| `map-apps.sh` | Swipes through home pages, OCR via Swift helper (native res, converted to points), outputs JSON to stdout |
 
 ## License
 

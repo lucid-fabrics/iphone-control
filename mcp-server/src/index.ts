@@ -62,13 +62,13 @@ const server = new McpServer({
 });
 
 // find_window
-server.tool("find_window", "Locate the iPhone Mirroring window. Returns JSON with window bounds and content bounds (iOS screen area inside bezel).", {}, async () => {
+server.tool("find_window", "Locate the iPhone Mirroring window. Returns JSON with window bounds and content bounds (iOS screen area inside bezel). Bounds are global Mac display points and can be negative when the window sits on a display left of or above the primary one.", {}, async () => {
   const { stdout } = await runScript("find-window.sh");
   return { content: [{ type: "text", text: stdout }] };
 });
 
 // screenshot
-server.tool("screenshot", "Take a screenshot of the iPhone screen. Returns the image directly.", {}, async () => {
+server.tool("screenshot", "Take a screenshot of the iPhone screen. Returns a PNG whose pixel dimensions equal the tap/swipe coordinate space (1 image pixel = 1 coordinate unit, on any display or Retina scale).", {}, async () => {
   const tmpPath = `/tmp/iphone-mcp-${randomUUID()}.png`;
   try {
     await runScript("screenshot.sh", [tmpPath]);
@@ -90,7 +90,7 @@ server.tool("screenshot", "Take a screenshot of the iPhone screen. Returns the i
 // tap
 server.tool(
   "tap",
-  "Tap at coordinates relative to the iPhone content area.",
+  "Tap at coordinates relative to the iPhone content area. Coordinates are content points, identical to screenshot pixel coordinates.",
   { x: z.number().int().describe("X coordinate"), y: z.number().int().describe("Y coordinate") },
   async ({ x, y }) => {
     const { stdout } = await runScript("tap.sh", [String(x), String(y)]);
@@ -101,7 +101,7 @@ server.tool(
 // swipe
 server.tool(
   "swipe",
-  "Swipe from (x1,y1) to (x2,y2) on the iPhone content area.",
+  "Swipe from (x1,y1) to (x2,y2) on the iPhone content area. Coordinates are content points, identical to screenshot pixel coordinates.",
   {
     x1: z.number().int().describe("Start X"),
     y1: z.number().int().describe("Start Y"),
@@ -179,7 +179,7 @@ server.tool("status", "Check if iPhone Mirroring is connected and active.", {}, 
   return { content: [{ type: "text", text: stdout }] };
 });
 
-// scan_apps (replaces both scan_apps and map_apps — they were identical)
+// scan_apps (replaces both scan_apps and map_apps - they were identical)
 server.tool(
   "scan_apps",
   "Scan all iPhone home screen pages via OCR and save results to persistent registry. This populates the app registry used by open_app for fast launches. Returns full registry JSON with app names, pages, and coordinates.",

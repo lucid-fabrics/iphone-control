@@ -11,9 +11,9 @@ Control your iPhone through macOS iPhone Mirroring. The skill captures the mirro
 
 | Tool | Install | Purpose |
 |------|---------|---------|
-| `cliclick` | `brew install cliclick` | Mouse clicks, drags, typing |
-| `screencapture` | Built-in macOS | Window/region capture |
-| `osascript` | Built-in macOS | Window discovery via JXA |
+| `screencapture` | Built-in macOS | Window capture by window ID |
+| `osascript` | Built-in macOS | JXA: window discovery, CGEvent taps/swipes, typing |
+| `swiftc` | Xcode CLT | Auto-compiles the window/OCR helpers on first run |
 | iPhone Mirroring | macOS 15+ (Sequoia) | Renders iPhone on Mac |
 
 ## Permissions Required
@@ -47,11 +47,11 @@ All commands go through `iphone-control.sh`:
 
 ## Workflow for AI Agent
 
-1. `find` — locate the mirroring window (do once per session)
-2. `screenshot` — capture current state, analyze the image
+1. `find` - locate the mirroring window (do once per session)
+2. `screenshot` - capture current state, analyze the image
 3. Decide action based on what's visible
-4. `tap`/`swipe`/`type` — execute the action
-5. `screenshot` — verify the result
+4. `tap`/`swipe`/`type` - execute the action
+5. `screenshot` - verify the result
 6. Repeat 3-5
 
 ## Coordinate System
@@ -60,13 +60,15 @@ All commands go through `iphone-control.sh`:
 - Coordinates are relative to the iPhone screen, NOT the Mac screen
 - The scripts handle conversion to absolute Mac screen coordinates
 - Typical iPhone screen in mirroring: ~375x812 points (varies by model)
+- Screenshots are normalized to point dimensions: 1 image pixel = 1 tap coordinate
+- Multi-display safe: the window can be on any display, including ones with
+  negative global coordinates (left of / above primary) or a different Retina scale
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
 | "iPhone Mirroring window not found" | Open iPhone Mirroring app on Mac |
-| "cliclick not found" | `brew install cliclick` |
-| Tap lands in wrong spot | Run `find` again — window may have moved |
+| Tap lands in wrong spot | Run `find` again - window may have moved |
 | No screen recording permission | System Settings > Privacy & Security > Screen Recording > add Terminal |
 | No accessibility permission | System Settings > Privacy & Security > Accessibility > add Terminal |
