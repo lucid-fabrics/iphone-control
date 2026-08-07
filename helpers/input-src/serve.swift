@@ -63,8 +63,8 @@ private func ocrLines(_ img: CGImage) -> [String] {
     return out
 }
 
-private func waitStill(timeoutMs: Double) -> String? {
-    let win = resolveWindow()
+private func waitStill(timeoutMs: Double) throws -> String? {
+    let win = try resolveWindow()
     let start = Date()
     let deadline = start.addingTimeInterval(timeoutMs / 1000.0)
     Thread.sleep(forTimeInterval: Tune.stillLeadIn)
@@ -93,19 +93,19 @@ private struct Reply {
     var quit = false
 }
 
-private func handleRead() -> Reply {
+private func handleRead() throws -> Reply {
     winCache = nil
-    let win = currentWin()
+    let win = try currentWin()
     guard let raw = captureWindowImage(win), let img = cropToContent(raw, win) else {
         return Reply(error: "capture failed")
     }
     return Reply(data: ocrLines(img))
 }
 
-private func handleShot(_ fields: [String]) -> Reply {
+private func handleShot(_ fields: [String]) throws -> Reply {
     guard let path = fields.first else { return Reply(error: "shot: needs <path> [norm|native]") }
     winCache = nil
-    let win = currentWin()
+    let win = try currentWin()
     guard let raw = captureWindowImage(win), var img = cropToContent(raw, win) else {
         return Reply(error: "capture failed")
     }
@@ -117,49 +117,61 @@ private func handleShot(_ fields: [String]) -> Reply {
     return Reply(data: [path])
 }
 
-private func handleStill(_ fields: [String]) -> Reply {
+private func handleStill(_ fields: [String]) throws -> Reply {
     let ms = fields.first.flatMap(Double.init) ?? 6000
     guard ms.isFinite, ms > 0, ms <= 120_000 else { return Reply(error: "still: bad timeout") }
-    guard let elapsed = waitStill(timeoutMs: ms) else {
+    guard let elapsed = try waitStill(timeoutMs: ms) else {
         return Reply(error: "screen still changing after \(Int(ms))ms")
     }
     return Reply(data: [elapsed])
 }
 
-/// Handle one request line.
+private func handleInputVerb(_ verb: String, _ fields: [String]) throws -> Reply {
+    // Normal input grammar: needs the shared session. Window info refreshed
+    // per command so a moved window never gets stale coordinates.
+    winCache = nil
+    _ = try currentWin()
+    let act = try parseAction(verb, fields)
+    ensureSessionLocked()
+    run(act)
+    return Reply()
+}
+
+/// Handle one request line. Recoverable errors (bad args, out-of-bounds, window
+/// closed) come back as an ERR reply; the daemon keeps its warm state and the
+/// next command works normally, instead of one bad input killing the process.
 private func handle(_ line: String) -> Reply {
     var fields = line.split(separator: " ").map(String.init)
     guard let verb = fields.first else { return Reply(error: "empty command") }
     fields.removeFirst()
     lastCommandAt = Date()
 
-    switch verb {
-    case "ping":
-        return Reply(data: ["pong"])
-    case "quit":
-        closeSessionLocked()
-        return Reply(quit: true)
-    case "close":
-        closeSessionLocked()
-        return Reply()
-    case "bounds":
-        winCache = nil
-        return Reply(data: [currentWin().json])
-    case "read":
-        return handleRead()
-    case "shot":
-        return handleShot(fields)
-    case "still":
-        return handleStill(fields)
-    default:
-        // Normal input grammar: needs the shared session. Window info refreshed
-        // per command so a moved window never gets stale coordinates.
-        winCache = nil
-        _ = currentWin()
-        let act = parseAction(verb, fields)
-        ensureSessionLocked()
-        run(act)
-        return Reply()
+    do {
+        switch verb {
+        case "ping":
+            return Reply(data: ["pong"])
+        case "quit":
+            closeSessionLocked()
+            return Reply(quit: true)
+        case "close":
+            closeSessionLocked()
+            return Reply()
+        case "bounds":
+            winCache = nil
+            return Reply(data: [try currentWin().json])
+        case "read":
+            return try handleRead()
+        case "shot":
+            return try handleShot(fields)
+        case "still":
+            return try handleStill(fields)
+        default:
+            return try handleInputVerb(verb, fields)
+        }
+    } catch let e as CommandError {
+        return Reply(error: e.message)
+    } catch {
+        return Reply(error: "\(error)")
     }
 }
 
@@ -205,6 +217,11 @@ func runServe() -> Never {
         $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, size) }
     }
     guard bound == 0 else { exit(1) }   // another daemon already owns the socket
+    // Owner-only: connecting to a UNIX socket requires write permission on the
+    // file, and the daemon accepts full input control plus arbitrary-path reads
+    // (`text`) and writes (`shot`). Without this the socket inherits the ambient
+    // umask, so a permissive umask would let any local user drive the phone.
+    chmod(Tune.socketPath, S_IRUSR | S_IWUSR)
     guard listen(fd, 8) == 0 else { die("serve: listen() failed") }
 
     Thread { idleWatcher() }.start()

@@ -92,6 +92,12 @@ func die(_ msg: String) -> Never {
     exit(1)
 }
 
+/// A recoverable per-command error. The one-shot CLI turns it into `die()`; the
+/// daemon returns it as an `ERR` reply and keeps running. Validation that can
+/// fail on user input MUST throw this rather than call `die()`, or a single bad
+/// command would exit() the whole daemon and discard its warm state.
+struct CommandError: Error { let message: String }
+
 // MARK: - Input session
 
 struct Session {
@@ -195,9 +201,9 @@ if verb == "keyfor" {
 // resolves once, while the daemon re-resolves per command so a moved window
 // never receives taps at stale coordinates.
 var winCache: WindowInfo?
-func currentWin() -> WindowInfo {
+func currentWin() throws -> WindowInfo {
     if let w = winCache { return w }
-    let w = resolveWindow()
+    let w = try resolveWindow()
     winCache = w
     return w
 }
@@ -210,15 +216,15 @@ if verb == "send" {
 }
 
 if verb == "bounds" {
-    print(currentWin().json)
+    do { print(try currentWin().json) } catch let e as CommandError { die(e.message) } catch { die("\(error)") }
     exit(0)
 }
 
 /// Content point -> absolute screen point, with bounds validation.
-func toScreen(_ x: Double, _ y: Double) -> CGPoint {
-    let win = currentWin()
+func toScreen(_ x: Double, _ y: Double) throws -> CGPoint {
+    let win = try currentWin()
     guard x >= 0, x < Double(win.contentWidth), y >= 0, y < Double(win.contentHeight) else {
-        die("Coordinates (\(Int(x)), \(Int(y))) out of bounds (\(win.contentWidth)x\(win.contentHeight))")
+        throw CommandError(message: "Coordinates (\(Int(x)), \(Int(y))) out of bounds (\(win.contentWidth)x\(win.contentHeight))")
     }
     return CGPoint(x: Double(win.contentX) + x, y: Double(win.contentY) + y)
 }
@@ -235,31 +241,34 @@ struct Action {
     let text: String
 }
 
-func parseAction(_ verb: String, _ f: [String]) -> Action {
+func parseAction(_ verb: String, _ f: [String]) throws -> Action {
     // Every numeric argument is range-checked here. Double -> integer conversions
     // in the gesture code TRAP on NaN, infinity or out-of-range values, and that
-    // trap would fire mid-session with the mouse button held down.
-    func num(_ i: Int, _ name: String, min lo: Double, max hi: Double) -> Double {
-        guard i < f.count, let v = Double(f[i]) else { die("\(verb): missing or bad \(name)") }
+    // trap would fire mid-session with the mouse button held down. Failures throw
+    // (recoverable) rather than exit, so the daemon survives a bad command.
+    func num(_ i: Int, _ name: String, min lo: Double, max hi: Double) throws -> Double {
+        guard i < f.count, let v = Double(f[i]) else {
+            throw CommandError(message: "\(verb): missing or bad \(name)")
+        }
         guard v.isFinite, v >= lo, v <= hi else {
-            die("\(verb): \(name) must be between \(Int(lo)) and \(Int(hi)), got \(f[i])")
+            throw CommandError(message: "\(verb): \(name) must be between \(Int(lo)) and \(Int(hi)), got \(f[i])")
         }
         return v
     }
-    func optNum(_ i: Int, _ fallback: Double, _ name: String, min lo: Double, max hi: Double) -> Double {
+    func optNum(_ i: Int, _ fallback: Double, _ name: String, min lo: Double, max hi: Double) throws -> Double {
         guard i < f.count else { return fallback }
-        return num(i, name, min: lo, max: hi)
+        return try num(i, name, min: lo, max: hi)
     }
     // Coordinates are bounds-checked again by toScreen; this range only keeps the
     // value finite and inside Int territory before it gets there.
     let coordMax = 100_000.0
-    func coord(_ i: Int, _ name: String) -> Double { num(i, name, min: -coordMax, max: coordMax) }
+    func coord(_ i: Int, _ name: String) throws -> Double { try num(i, name, min: -coordMax, max: coordMax) }
 
     let pointVerbs = ["tap", "doubletap", "longpress", "scroll", "swipe", "drag"]
     let twoPointVerbs = ["swipe", "drag"]
-    let a = pointVerbs.contains(verb) ? toScreen(coord(0, "x"), coord(1, "y")) : .zero
-    let b = twoPointVerbs.contains(verb) ? toScreen(coord(2, "x2"), coord(3, "y2")) : .zero
-    let via = (verb == "drag" && f.count > 6) ? toScreen(coord(5, "viaX"), coord(6, "viaY")) : nil
+    let a = pointVerbs.contains(verb) ? try toScreen(coord(0, "x"), coord(1, "y")) : .zero
+    let b = twoPointVerbs.contains(verb) ? try toScreen(coord(2, "x2"), coord(3, "y2")) : .zero
+    let via = (verb == "drag" && f.count > 6) ? try toScreen(coord(5, "viaX"), coord(6, "viaY")) : nil
     let durMax = 60_000.0
 
     switch verb {
@@ -267,32 +276,32 @@ func parseAction(_ verb: String, _ f: [String]) -> Action {
         return Action(verb: verb, a: a, b: b, via: via, n: [], text: "")
     case "longpress":
         return Action(verb: verb, a: a, b: b, via: via,
-                      n: [optNum(2, 800, "holdMs", min: 0, max: durMax)], text: "")
+                      n: [try optNum(2, 800, "holdMs", min: 0, max: durMax)], text: "")
     case "scroll":
         return Action(verb: verb, a: a, b: b, via: via,
-                      n: [num(2, "dy", min: -coordMax, max: coordMax)], text: "")
+                      n: [try num(2, "dy", min: -coordMax, max: coordMax)], text: "")
     case "swipe", "drag":
         return Action(verb: verb, a: a, b: b, via: via,
-                      n: [optNum(4, 300, "durationMs", min: 1, max: durMax)], text: "")
+                      n: [try optNum(4, 300, "durationMs", min: 1, max: durMax)], text: "")
     case "key":
         // CGKeyCode is UInt16 but macOS virtual keycodes stop at 127; flags is a
         // UInt64 mask. Both conversions trap outside these ranges.
         return Action(verb: verb, a: a, b: b, via: via,
-                      n: [num(0, "keycode", min: 0, max: 127),
-                          optNum(1, 0, "flags", min: 0, max: 4_294_967_295)], text: "")
+                      n: [try num(0, "keycode", min: 0, max: 127),
+                          try optNum(1, 0, "flags", min: 0, max: 4_294_967_295)], text: "")
     case "sleep":
         return Action(verb: verb, a: a, b: b, via: via,
-                      n: [num(0, "seconds", min: 0, max: 300)], text: "")
+                      n: [try num(0, "seconds", min: 0, max: 300)], text: "")
     case "text":
         // Validate the file BEFORE any session opens, so an unreadable path is a
         // clean no-op rather than an exit with focus and cursor still stolen.
-        guard let path = f.first else { die("text: needs a utf8 file path") }
+        guard let path = f.first else { throw CommandError(message: "text: needs a utf8 file path") }
         guard (try? String(contentsOfFile: path, encoding: .utf8)) != nil else {
-            die("text: cannot read utf8 file: \(path)")
+            throw CommandError(message: "text: cannot read utf8 file: \(path)")
         }
         return Action(verb: verb, a: a, b: b, via: via, n: [], text: path)
     default:
-        die("unknown verb: \(verb)")
+        throw CommandError(message: "unknown verb: \(verb)")
     }
 }
 
@@ -313,18 +322,30 @@ func run(_ act: Action) {
 
 // batch: one action per stdin line, all inside ONE session. A sequence costs one
 // process launch and one focus steal instead of N of each.
-var actions: [Action] = []
-if verb == "batch" {
-    while let line = readLine(strippingNewline: true) {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-        var fields = trimmed.split(separator: " ").map(String.init)
-        let v = fields.removeFirst()
-        actions.append(parseAction(v, fields))
+// Parsing throws CommandError on bad input; in the one-shot CLI that is a die().
+func parseCLIActions() throws -> [Action] {
+    if verb == "batch" {
+        var parsed: [Action] = []
+        while let line = readLine(strippingNewline: true) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+            var fields = trimmed.split(separator: " ").map(String.init)
+            let v = fields.removeFirst()
+            parsed.append(try parseAction(v, fields))
+        }
+        if parsed.isEmpty { throw CommandError(message: "batch: no actions on stdin") }
+        return parsed
     }
-    if actions.isEmpty { die("batch: no actions on stdin") }
-} else {
-    actions = [parseAction(verb, args)]
+    return [try parseAction(verb, args)]
+}
+
+let actions: [Action]
+do {
+    actions = try parseCLIActions()
+} catch let e as CommandError {
+    die(e.message)
+} catch {
+    die("\(error)")
 }
 
 let session = beginSession()

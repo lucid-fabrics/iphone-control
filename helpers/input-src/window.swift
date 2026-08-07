@@ -94,13 +94,13 @@ private func scanViaShell(_ f: WindowFrame) -> WindowInfo? {
     return infoFromJSON(json, f)
 }
 
-func resolveWindow() -> WindowInfo {
+func resolveWindow() throws -> WindowInfo {
     guard let f = mirroringWindowFrame() else {
-        die("iPhone Mirroring window not found. Is iPhone Mirroring open?")
+        throw CommandError(message: "iPhone Mirroring window not found. Is iPhone Mirroring open?")
     }
     if let hit = cachedInfo(for: f) { return hit }
     guard let info = scanViaShell(f) else {
-        die("Failed to detect content bounds. Check Screen Recording permission.")
+        throw CommandError(message: "Failed to detect content bounds. Check Screen Recording permission.")
     }
     return info
 }

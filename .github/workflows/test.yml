@@ -16,6 +16,12 @@ jobs:
       - name: Install bats-core
         run: brew install bats-core
 
+      # Build the native input engine so the daemon tests run instead of
+      # skipping. It needs no phone: those tests exercise argument validation
+      # and daemon liveness, all of which fail-fast before touching Mirroring.
+      - name: Build native input engine
+        run: swiftc -O helpers/input-src/*.swift -o helpers/input
+
       - name: Run shell tests
         run: bats tests/
 
