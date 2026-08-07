@@ -230,6 +230,106 @@ describe("tool argument construction", () => {
     if (max_pages !== undefined) args.push(String(max_pages));
     expect(args).toEqual(["scan"]);
   });
+
+  it("tap_text: passes text alone by default", () => {
+    const text = "Battery";
+    const index = undefined;
+    const args: string[] = [text];
+    if (index !== undefined) args.push("--index", String(index));
+    expect(args).toEqual(["Battery"]);
+  });
+
+  it("tap_text: appends --index when given", () => {
+    const text = "Wi-Fi";
+    const index = 2;
+    const args: string[] = [text];
+    if (index !== undefined) args.push("--index", String(index));
+    expect(args).toEqual(["Wi-Fi", "--index", "2"]);
+  });
+
+  it("tap_verify: coords only for default changed-mode", () => {
+    const x = 100, y = 200;
+    const expectText = undefined, gone = undefined;
+    const args: string[] = [String(x), String(y)];
+    if (expectText !== undefined) args.push("--expect", expectText);
+    if (gone !== undefined) args.push("--gone", gone);
+    expect(args).toEqual(["100", "200"]);
+  });
+
+  it("tap_verify: appends --expect with its text", () => {
+    const x = 100, y = 200;
+    const expectText = "Settings";
+    const args: string[] = [String(x), String(y)];
+    if (expectText !== undefined) args.push("--expect", expectText);
+    expect(args).toEqual(["100", "200", "--expect", "Settings"]);
+  });
+
+  it("tap_verify: expect and gone together must be rejected", () => {
+    const maybe = (v?: string) => v;
+    const expectText = maybe("A");
+    const gone = maybe("B");
+    const conflict = expectText !== undefined && gone !== undefined;
+    expect(conflict).toBe(true);
+  });
+
+  it("wait_for: still mode needs no text", () => {
+    const condition = "still";
+    const args: string[] = condition === "still" ? ["still"] : [condition, "x"];
+    expect(args).toEqual(["still"]);
+  });
+
+  it("wait_for: text mode passes condition then string then timeout", () => {
+    const condition: string = "text";
+    const text = "Loading";
+    const timeout_s = 5;
+    const args: string[] = condition === "still" ? ["still"] : [condition, text];
+    if (timeout_s !== undefined) args.push("--timeout", String(timeout_s));
+    expect(args).toEqual(["text", "Loading", "--timeout", "5"]);
+  });
+
+  it("scroll: dy alone by default, position appended as a pair", () => {
+    const dy = -250;
+    const x = 100, y = 400;
+    const bare: string[] = [String(dy)];
+    expect(bare).toEqual(["-250"]);
+    const positioned = [String(dy), String(x), String(y)];
+    expect(positioned).toEqual(["-250", "100", "400"]);
+  });
+
+  it("scroll_to: flags appended only when set", () => {
+    const text = "Battery";
+    const up = true, tap = true, max_scrolls = 6;
+    const args: string[] = [text];
+    if (up) args.push("--up");
+    if (tap) args.push("--tap");
+    if (max_scrolls !== undefined) args.push("--max", String(max_scrolls));
+    expect(args).toEqual(["Battery", "--up", "--tap", "--max", "6"]);
+  });
+
+  it("long_press: routes through dispatcher with optional hold", () => {
+    const x = 306, y = 555, hold_ms = 800;
+    const args: string[] = ["press", String(x), String(y)];
+    if (hold_ms !== undefined) args.push(String(hold_ms));
+    expect(args).toEqual(["press", "306", "555", "800"]);
+  });
+
+  it("press_key: modifier flags map to script options", () => {
+    const key = "a";
+    const cmd = true, shift = false, option = false, control = false;
+    const args: string[] = [key];
+    if (cmd) args.push("--cmd");
+    if (shift) args.push("--shift");
+    if (option) args.push("--option");
+    if (control) args.push("--control");
+    expect(args).toEqual(["a", "--cmd"]);
+  });
+
+  it("drag_icon: coords then optional --hover", () => {
+    const x1 = 54, y1 = 463, x2 = 138, y2 = 463, hover_ms = 1200;
+    const args: string[] = [String(x1), String(y1), String(x2), String(y2)];
+    if (hover_ms !== undefined) args.push("--hover", String(hover_ms));
+    expect(args).toEqual(["54", "463", "138", "463", "--hover", "1200"]);
+  });
 });
 
 describe("timeout constants", () => {

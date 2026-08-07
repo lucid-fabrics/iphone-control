@@ -30,9 +30,15 @@ do {
 
 guard let results = request.results else { exit(0) }
 
-// Output: text|x|y|w|h (normalized 0-1 coordinates, origin bottom-left)
+// Output: text|x|y|w|h (pixel coordinates, top-left origin)
+// Confidence gate: on phone-UI content Vision scores are bimodal - legitimate
+// text reads 1.0, garbled partial glyphs (half-clipped rows) read ~0.5
+// ("Battery" clipped under a search pill OCR'd as "Rottor" at 0.50). Dropping
+// low-confidence lines at the source keeps every consumer from trusting junk.
+let minConfidence: Float = 0.6
 for obs in results {
-    guard let candidate = obs.topCandidates(1).first else { continue }
+    guard let candidate = obs.topCandidates(1).first,
+          candidate.confidence >= minConfidence else { continue }
     let box = obs.boundingBox
     // Convert from Vision coords (bottom-left origin, normalized) to pixel coords (top-left origin)
     let px = Int(box.origin.x * Double(width))

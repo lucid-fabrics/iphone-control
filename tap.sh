@@ -23,14 +23,7 @@ validate_coords "$rel_x" "$rel_y" "$CONTENT_W" "$CONTENT_H" || exit 1
 abs_x=$(( CONTENT_X + rel_x ))
 abs_y=$(( CONTENT_Y + rel_y ))
 
-# Activate + click, saving and restoring cursor
-jxa_activate_and_run "
-const pt = {x: ${abs_x}, y: ${abs_y}};
-const dn = \$.CGEventCreateMouseEvent(null, \$.kCGEventLeftMouseDown, pt, \$.kCGMouseButtonLeft);
-const up = \$.CGEventCreateMouseEvent(null, \$.kCGEventLeftMouseUp,   pt, \$.kCGMouseButtonLeft);
-\$.CGEventPost(\$.kCGHIDEventTap, dn);
-\$.NSThread.sleepForTimeInterval(${TAP_DELAY});
-\$.CGEventPost(\$.kCGHIDEventTap, up);
-"
+# Activate + click, saving and restoring cursor/focus
+jxa_activate_and_run "$(jxa_tap_body "$abs_x" "$abs_y")"
 
 echo "Tapped at ($rel_x, $rel_y) -> screen ($abs_x, $abs_y)"

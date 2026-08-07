@@ -7,3 +7,5 @@ helpers/get-window-id
 helpers/ocr-image
 *.xcuserstate
 xcuserdata/
+tests/live/results/
+helpers/input

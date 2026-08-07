@@ -44,9 +44,7 @@ actor InputController: InputControlling {
         let absX = bounds.contentX + x
         let absY = bounds.contentY + y
 
-        await activateIPhoneMirroring()
-
-        let saved = saveCursor()
+        let session = await beginSession()
         let pt = CGPoint(x: absX, y: absY)
 
         let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: pt, mouseButton: .left)
@@ -56,7 +54,7 @@ actor InputController: InputControlling {
         Thread.sleep(forTimeInterval: Constants.tapDownUpDelay)
         up?.post(tap: .cghidEventTap)
 
-        restoreCursor(saved)
+        await endSession(session)
         try await Task.sleep(nanoseconds: Constants.tapSettleDelay)
 
         return "Tapped at (\(x), \(y)) -> screen (\(absX), \(absY))"
@@ -77,9 +75,7 @@ actor InputController: InputControlling {
         let absX2 = bounds.contentX + x2
         let absY2 = bounds.contentY + y2
 
-        await activateIPhoneMirroring()
-
-        let saved = saveCursor()
+        let session = await beginSession()
         let startPt = CGPoint(x: absX1, y: absY1)
         let endPt = CGPoint(x: absX2, y: absY2)
         let dx = Double(absX2 - absX1)
@@ -106,7 +102,7 @@ actor InputController: InputControlling {
         let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: endPt, mouseButton: .left)
         up?.post(tap: .cghidEventTap)
 
-        restoreCursor(saved)
+        await endSession(session)
         try await Task.sleep(nanoseconds: Constants.swipeSettleDelay)
 
         return "Swiped (\(x1),\(y1)) -> (\(x2),\(y2)) in \(durationMs)ms"
@@ -120,8 +116,9 @@ actor InputController: InputControlling {
             try await Task.sleep(nanoseconds: Constants.pageSwipeDelay)
         }
 
-        await activateIPhoneMirroring()
+        let session = await beginSession()
         postKeystrokes(text)
+        await endSession(session)
 
         return "Typed: \(text)"
     }
@@ -129,7 +126,19 @@ actor InputController: InputControlling {
     // MARK: - View Menu Actions (home, app switcher, spotlight)
 
     func clickViewMenuItem(_ itemName: String) async throws -> String {
-        await activateIPhoneMirroring()
+        let session = await beginSession()
+        do {
+            let result = try await clickViewMenuItemCore(itemName)
+            await endSession(session)
+            return result
+        } catch {
+            await endSession(session)
+            throw error
+        }
+    }
+
+    /// Assumes iPhone Mirroring is already active (inside an input session).
+    private func clickViewMenuItemCore(_ itemName: String) async throws -> String {
         Thread.sleep(forTimeInterval: Constants.menuOpenDelay)
 
         guard let pid = await iPhoneMirroringPID() else {
@@ -142,16 +151,23 @@ actor InputController: InputControlling {
     // MARK: - Open App via Spotlight
 
     func openAppViaSpotlight(_ appName: String) async throws -> String {
-        // Open Spotlight via View menu
-        _ = try await clickViewMenuItem("Spotlight")
-        try await Task.sleep(nanoseconds: Constants.spotlightOpenDelay)
+        let session = await beginSession()
+        do {
+            // Open Spotlight via View menu
+            _ = try await clickViewMenuItemCore("Spotlight")
+            try await Task.sleep(nanoseconds: Constants.spotlightOpenDelay)
 
-        // Type the app name
-        postKeystrokes(appName)
-        try await Task.sleep(nanoseconds: Constants.spotlightSearchDelay)
+            // Type the app name
+            postKeystrokes(appName)
+            try await Task.sleep(nanoseconds: Constants.spotlightSearchDelay)
 
-        // Press Return to open
-        postKeyCode(36) // Return
+            // Press Return to open
+            postKeyCode(36) // Return
+            await endSession(session)
+        } catch {
+            await endSession(session)
+            throw error
+        }
 
         return "Opened: \(appName) (spotlight)"
     }
@@ -237,31 +253,76 @@ actor InputController: InputControlling {
         keyUp?.post(tap: .cghidEventTap)
     }
 
-    // MARK: - Helpers
+    // MARK: - Input Session (steal cursor/focus politely, give both back)
+
+    private struct InputSession {
+        let cursor: CGPoint
+        let previousApp: NSRunningApplication?
+    }
+
+    /// Waits for the user to stop typing/moving the mouse, saves cursor position and
+    /// frontmost app, then activates iPhone Mirroring.
+    private func beginSession() async -> InputSession {
+        waitForUserIdle()
+        return await openSessionOnMain()
+    }
 
     @MainActor
-    private func activateIPhoneMirroring() {
+    private func openSessionOnMain() -> InputSession {
+        let cursor = CGEvent(source: nil)?.location ?? .zero
+        let previous = NSWorkspace.shared.frontmostApplication
         let apps = NSWorkspace.shared.runningApplications
         if let im = apps.first(where: { $0.bundleIdentifier == Constants.iphoneMirroringBundleId }) {
             im.activate(options: .activateIgnoringOtherApps)
         }
         Thread.sleep(forTimeInterval: Constants.activateDelay)
+        return InputSession(cursor: cursor, previousApp: previous)
     }
+
+    /// Epoch of our last synthetic post - lets waitForUserIdle tell our events from the user's.
+    private var lastSyntheticPost = Date.distantPast
+
+    /// Restores cursor position and reactivates whatever app the user had frontmost,
+    /// then stamps the time so the next session skips the idle wait for our own events.
+    private func endSession(_ session: InputSession) async {
+        await closeSessionOnMain(session)
+        lastSyntheticPost = Date()
+    }
+
+    @MainActor
+    private func closeSessionOnMain(_ session: InputSession) {
+        Thread.sleep(forTimeInterval: Constants.sessionCloseDelay)
+        CGWarpMouseCursorPosition(session.cursor)
+        if let previous = session.previousApp,
+           previous.bundleIdentifier != Constants.iphoneMirroringBundleId {
+            previous.activate(options: .activateIgnoringOtherApps)
+        }
+    }
+
+    /// Blocks (in actor context, off the main thread) until user input has been quiet
+    /// for userIdleThreshold, or userIdleTimeout elapses. Skips waiting when the most
+    /// recent HID event is no newer than our own last synthetic post.
+    private func waitForUserIdle() {
+        let inputTypes: [CGEventType] = [.mouseMoved, .leftMouseDown, .leftMouseDragged, .keyDown, .scrollWheel]
+        let deadline = Date().addingTimeInterval(Constants.userIdleTimeout)
+        while Date() < deadline {
+            let idle = inputTypes
+                .map { CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: $0) }
+                .min() ?? .infinity
+            if idle >= Constants.userIdleThreshold { break }
+            let lastEventAt = Date().addingTimeInterval(-idle)
+            if lastEventAt.timeIntervalSince(lastSyntheticPost) <= Constants.syntheticEventSlack { break }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+    }
+
+    // MARK: - Helpers
 
     @MainActor
     private func iPhoneMirroringPID() -> pid_t? {
         NSWorkspace.shared.runningApplications
             .first(where: { $0.bundleIdentifier == Constants.iphoneMirroringBundleId })?
             .processIdentifier
-    }
-
-    private func saveCursor() -> CGPoint {
-        guard let event = CGEvent(source: nil) else { return .zero }
-        return event.location
-    }
-
-    private func restoreCursor(_ point: CGPoint) {
-        CGWarpMouseCursorPosition(point)
     }
 }
 
