@@ -15,11 +15,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // ponytail: flush dock, tune dockGutter if the shadow shows.
     private let dockGutter: CGFloat = 0
 
-    // The frame we last set programmatically. A didMove whose frame matches this is
-    // our own re-dock; anything else is the user grabbing the panel. Comparing frames
-    // is robust to didMove being delivered asynchronously, unlike a set-then-clear flag.
-    private var lastDockedFrame: NSRect?
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         let chatView = ChatView()
             .environmentObject(conversation)
@@ -62,24 +57,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         dockToiPhoneMirroring()
         panel.orderFrontRegardless()
 
-        // A user drag of the panel detaches it; live-follow pauses until re-dock.
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(panelMoved(_:)),
-            name: NSWindow.didMoveNotification, object: panel
-        )
+        // Always follow the mirror. (Detach-on-user-drag was removed: its didMove
+        // detection false-triggered and left the follower stuck, which broke
+        // following entirely. Re-dock via Cmd+D is unaffected.)
         follower.start { [weak self] in self?.dockToiPhoneMirroring() }
 
         requestPermissions()
-    }
-
-    @objc private func panelMoved(_ note: Notification) {
-        // Our own re-dock lands on lastDockedFrame; only a real user drag differs.
-        if let expected = lastDockedFrame,
-           abs(panel.frame.origin.x - expected.origin.x) < 2,
-           abs(panel.frame.origin.y - expected.origin.y) < 2 {
-            return
-        }
-        follower.paused = true
     }
 
     private func requestPermissions() {
@@ -129,13 +112,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let panelY = screenHeight - frame.origin.y - usedHeight
 
         let target = NSRect(x: panelX, y: panelY, width: panelWidth, height: usedHeight)
-        lastDockedFrame = target
         panel.setFrame(target, display: true, animate: false)
         if !panel.isVisible { panel.orderFrontRegardless() }
     }
 
     @objc func redock() {
-        follower.paused = false   // deliberate re-attach
         dockToiPhoneMirroring()
     }
 }

@@ -7,7 +7,7 @@ struct ModelConfigView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Collapsed bar — tap to expand
+            // Collapsed bar, tap to expand
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                     showModelConfig.toggle()
@@ -32,7 +32,7 @@ struct ModelConfigView: View {
                         .padding(.vertical, 3)
                         .background(
                             Capsule()
-                                .fill(Color.primary.opacity(0.06))
+                                .fill(Theme.hairline)
                         )
 
                     Image(systemName: showModelConfig ? "chevron.down" : "chevron.up")
@@ -78,11 +78,11 @@ struct ModelConfigView: View {
                             .background(
                                 Capsule()
                                     .fill(conversation.aiBackend == backend
-                                        ? Color.accentColor.opacity(0.15)
-                                        : Color.primary.opacity(0.04))
+                                        ? Theme.accent.opacity(0.15)
+                                        : Theme.hairline)
                             )
                             .foregroundStyle(conversation.aiBackend == backend
-                                ? Color.accentColor
+                                ? Theme.accent
                                 : .secondary)
                     }
                     .buttonStyle(.plain)
@@ -125,10 +125,10 @@ struct ModelConfigView: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .fill(Theme.raised)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                            .strokeBorder(Theme.hairline, lineWidth: 0.5)
                     )
             )
 
@@ -138,7 +138,9 @@ struct ModelConfigView: View {
             }
 
             // API key field (for Claude / OpenRouter / MiniMax)
-            if conversation.aiBackend == .claude || conversation.aiBackend == .openRouter || conversation.aiBackend == .minimax {
+            let needsKey = conversation.aiBackend == .claude || conversation.aiBackend == .openRouter
+                || conversation.aiBackend == .minimax
+            if needsKey {
                 apiKeyRow
             }
 
@@ -168,25 +170,25 @@ struct ModelConfigView: View {
                     Spacer()
                     Image(systemName: isValid ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(isValid ? .green : .orange)
+                        .foregroundStyle(isValid ? Theme.statusLive : Theme.statusBusy)
                     Text(isValid ? "Connected" : "Expired")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(isValid ? .green : .orange)
+                        .foregroundStyle(isValid ? Theme.statusLive : Theme.statusBusy)
                 }
             } else {
-                Text("Not found — run `claude` in terminal")
+                Text("Not found. Run `claude` in terminal")
                     .font(.system(size: 12))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Theme.statusBusy)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(Theme.raised)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                        .strokeBorder(Theme.hairline, lineWidth: 0.5)
                 )
         )
     }
@@ -230,10 +232,10 @@ struct ModelConfigView: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(Theme.raised)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                        .strokeBorder(Theme.hairline, lineWidth: 0.5)
                 )
         )
     }
@@ -252,10 +254,10 @@ struct ModelConfigView: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(Theme.raised)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                        .strokeBorder(Theme.hairline, lineWidth: 0.5)
                 )
         )
     }
