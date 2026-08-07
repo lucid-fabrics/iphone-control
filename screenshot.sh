@@ -34,7 +34,11 @@ screencapture -x -l "$WINDOW_ID" -o "$tmp_full" 2>/dev/null || {
     exit 1
 }
 
-# Crop to content area (remove bezel/rounded corners)
+# Crop to content area (remove bezel/rounded corners).
+# NOTE: crop and resample must stay in SEPARATE sips invocations. Combining them
+# does not apply in command-line order - sips computes resample factors against
+# the ORIGINAL image and applies them to the cropped rect, yielding the wrong
+# size. This only shows up at scale > 1, so a 1x display will not reveal it.
 cp "$tmp_full" "$OUTPUT"
 rm -f "$tmp_full"
 sips --cropToHeightWidth "$crop_h" "$crop_w" --cropOffset "$offset_y" "$offset_x" "$OUTPUT" >/dev/null || {
@@ -43,8 +47,8 @@ sips --cropToHeightWidth "$crop_h" "$crop_w" --cropOffset "$offset_y" "$offset_x
     exit 1
 }
 
-# Normalize to point dimensions: one coordinate space for screenshots, OCR, registry, taps.
-# Exact 1/SCALE resample (crop dims are CONTENT * SCALE), so no aspect drift.
+# Normalize to point dimensions: one coordinate space for screenshots, OCR,
+# registry and taps. Exact 1/SCALE resample, so no aspect drift.
 if (( ! NATIVE && SCALE > 1 )); then
     sips --resampleHeightWidth "$CONTENT_H" "$CONTENT_W" "$OUTPUT" >/dev/null || {
         echo "Error: Failed to resample screenshot (sips failed)" >&2

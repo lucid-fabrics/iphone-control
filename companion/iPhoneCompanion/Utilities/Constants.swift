@@ -18,7 +18,7 @@ enum Constants {
         let candidates = [
             "\(home)/git/iphone-control",
             "\(home)/Developer/iphone-control",
-            "\(home)/Projects/iphone-control",
+            "\(home)/Projects/iphone-control"
         ]
         for path in candidates {
             let check = (path as NSString).appendingPathComponent("iphone-control.sh")
@@ -36,7 +36,7 @@ enum Constants {
         "/usr/bin",
         "/bin",
         "/usr/sbin",
-        "/sbin",
+        "/sbin"
     ].joined(separator: ":")
 
     // MARK: - API URLs
@@ -69,8 +69,12 @@ enum Constants {
 
     static let tapDownUpDelay: TimeInterval = 0.02
     static let activateDelay: TimeInterval = 0.05
-    static let tapSettleDelay: UInt64 = 600_000_000        // 600ms — let iOS animation settle after tap
-    static let swipeSettleDelay: UInt64 = 500_000_000      // 500ms — let iOS settle after swipe
+    static let userIdleThreshold: TimeInterval = 0.3       // user input quiet this long before we act
+    static let userIdleTimeout: TimeInterval = 5.0         // max wait for idle before acting anyway
+    static let sessionCloseDelay: TimeInterval = 0.05      // let mirroring consume events before focus leaves
+    static let syntheticEventSlack: TimeInterval = 0.2     // HID events this close to our own post are ours
+    static let tapSettleDelay: UInt64 = 600_000_000        // 600ms - let iOS animation settle after tap
+    static let swipeSettleDelay: UInt64 = 500_000_000      // 500ms - let iOS settle after swipe
     static let keystrokeDelay: TimeInterval = 0.005
     static let menuOpenDelay: TimeInterval = 0.1
     static let spotlightOpenDelay: UInt64 = 400_000_000  // nanoseconds
@@ -104,30 +108,30 @@ enum Constants {
 
         Coordinates are relative to the iPhone content area (top-left = 0,0).
 
-        ## MANDATORY VERIFICATION LOOP — follow for EVERY action:
+        ## MANDATORY VERIFICATION LOOP - follow for EVERY action:
         1. take_screenshot → analyze what's on screen
         2. decide on ONE action
         3. execute that action
         4. take_screenshot → confirm the result before proceeding
-        5. If the result is unexpected, STOP and re-assess — never blindly continue
+        5. If the result is unexpected, STOP and re-assess - never blindly continue
 
         ## OVERLAY HANDLING:
         After any navigation or app launch, always check for and dismiss prompts ("Not Now", "Skip", "Later", "Allow", "Don't Allow", "Continue", "OK"). Tap them before proceeding. Failure to dismiss overlays will cause all subsequent taps to miss their targets.
 
         ## COORDINATE ACCURACY:
-        - Tap exactly on the center of interactive elements — buttons, icons, input fields
+        - Tap exactly on the center of interactive elements - buttons, icons, input fields
         - If a tap doesn't produce the expected result, do NOT retry in the same spot; re-evaluate coordinates from a fresh screenshot
         - Swipe slowly and deliberately; verify the swipe worked before the next action
 
         ## RESPONSE STYLE:
         - Describe what you SEE on screen after each screenshot, then what you're doing next
         - Never repeat raw tool output (e.g., don't say "Tapped at (187, 400)")
-        - Be concise — one sentence per action is enough
+        - Be concise - one sentence per action is enough
         - If you're stuck or something unexpected happens, say so clearly
 
         ## SPEED:
         - Never chain multiple actions without a verification screenshot between them
-        - Quality over speed — one correct action is better than three wrong ones
+        - Quality over speed - one correct action is better than three wrong ones
         """
 
     // Fallback static list if API fetch fails
@@ -135,7 +139,7 @@ enum Constants {
         ("claude-opus-4-6-20250514", "Opus 4.6"),
         ("claude-sonnet-4-6-20250514", "Sonnet 4.6"),
         ("claude-sonnet-4-5-20250514", "Sonnet 4.5"),
-        ("claude-haiku-4-5-20251001", "Haiku 4.5"),
+        ("claude-haiku-4-5-20251001", "Haiku 4.5")
     ]
 
     static let fallbackOpenRouterModels: [(id: String, name: String)] = [
@@ -143,7 +147,7 @@ enum Constants {
         ("anthropic/claude-sonnet-4.6", "Claude Sonnet 4.6"),
         ("anthropic/claude-haiku-4.5", "Claude Haiku 4.5"),
         ("google/gemini-2.5-pro-preview", "Gemini 2.5 Pro"),
-        ("openai/gpt-4o", "GPT-4o"),
+        ("openai/gpt-4o", "GPT-4o")
     ]
 
     static let fallbackMiniMaxModels: [(id: String, name: String)] = [
@@ -152,6 +156,6 @@ enum Constants {
         ("MiniMax-M2.5", "MiniMax M2.5"),
         ("MiniMax-M2.5-highspeed", "MiniMax M2.5 Highspeed"),
         ("M2-her", "MiniMax M2-Her (Roleplay)"),
-        ("MiniMax-Text-01", "MiniMax Text 01 (Legacy)"),
+        ("MiniMax-Text-01", "MiniMax Text 01 (Legacy)")
     ]
 }
