@@ -8,16 +8,14 @@ struct ChatView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(nsColor: .windowBackgroundColor).opacity(0.95),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
+            // Real vibrancy: blurs the desktop behind the (non-opaque) panel, with a
+            // legibility tint over it. Clipped to the phone's corner radius with a
+            // hairline bezel so, docked flush, the glass reads as continuing from the
+            // device into the console.
+            VisualEffectBackground()
+            Theme.surfaceTint
+        }
+        .overlay {
             VStack(spacing: 0) {
                 ChatToolbarView(
                     showSettings: showSettings,
@@ -41,6 +39,13 @@ struct ChatView: View {
                 }
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.window, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.window, style: .continuous)
+                .strokeBorder(Theme.bezel, lineWidth: 1)
+        )
+        .ignoresSafeArea()
+        .tint(Theme.accent)
         .frame(minWidth: 320, minHeight: 400)
         .onAppear {
             isInputFocused = true
@@ -98,15 +103,10 @@ struct ChatView: View {
                     onCancel: { conversation.cancel() }
                 )
             }
-            .background(
-                ZStack {
-                    Color(nsColor: .windowBackgroundColor).opacity(0.8)
-                        .background(.ultraThinMaterial)
-                }
-            )
+            .background(Theme.raised)
             .overlay(alignment: .top) {
                 Rectangle()
-                    .fill(Color.primary.opacity(0.06))
+                    .fill(Theme.hairline)
                     .frame(height: 0.5)
             }
         }
@@ -120,24 +120,12 @@ struct ChatView: View {
 
             ZStack {
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.purple.opacity(0.15), .blue.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(Theme.accentSoft)
                     .frame(width: 64, height: 64)
 
                 Image(systemName: "iphone.gen3")
                     .font(.system(size: 28, weight: .light))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.purple, .blue],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .foregroundStyle(Theme.accentGradient)
             }
 
             VStack(spacing: 6) {
@@ -145,7 +133,7 @@ struct ChatView: View {
                     .font(.system(size: 16, weight: .semibold))
                 Text("Type a command or tap a suggestion below")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             SuggestionChipsView { suggestion in
@@ -162,30 +150,27 @@ struct ChatView: View {
     private var thinkingIndicator: some View {
         HStack(spacing: 8) {
             HStack(spacing: 4) {
-                ForEach(0..<3) { i in
+                ForEach(0..<3) { index in
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(Theme.accent)
                         .frame(width: 5, height: 5)
                         .scaleEffect(conversation.isProcessing ? 1.3 : 0.8)
                         .opacity(conversation.isProcessing ? 1.0 : 0.3)
                         .animation(
                             .easeInOut(duration: 0.6)
                                 .repeatForever(autoreverses: true)
-                                .delay(Double(i) * 0.2),
+                                .delay(Double(index) * 0.2),
                             value: conversation.isProcessing
                         )
                 }
             }
             Text("Thinking")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.caption)
+                .foregroundStyle(Theme.textSecondary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(
-            Capsule()
-                .fill(Color.accentColor.opacity(0.06))
-        )
+        .background(Capsule().fill(Theme.accentSoft))
         .padding(.horizontal, 14)
     }
 

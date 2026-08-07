@@ -4,37 +4,37 @@ struct MessageBubbleView: View {
     let message: ChatMessage
     @State private var appeared = false
 
-    /// Cleans AI response text by removing internal tags like <think>, tool calls, etc.
+    // Compiled once, not per render. These strip the model's internal tags before display.
+    private static let cleanupPatterns: [NSRegularExpression] = {
+        let sources = [
+            #"<think>[\s\S]*?</think>"#,
+            #"<minimax:tool_call>[\s\S]*?</minimax:tool_call>"#,
+            #"<invoke[\s\S]*?</invoke>"#
+        ]
+        return sources.compactMap { try? NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
+    }()
+
     private func cleanDisplayText(_ text: String) -> String {
         var cleaned = text
-        
-        // Remove <think>...</think> blocks (model's internal reasoning)
-        let thinkPattern = #"<think>[\s\S]*?</think>"#
-        if let regex = try? NSRegularExpression(pattern: thinkPattern, options: [.caseInsensitive]) {
-            cleaned = regex.stringByReplacingMatches(in: cleaned, options: [], range: NSRange(cleaned.startIndex..., in: cleaned), withTemplate: "")
+        for regex in Self.cleanupPatterns {
+            let range = NSRange(cleaned.startIndex..., in: cleaned)
+            cleaned = regex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "")
         }
-        
-        // Remove <minimax:tool_call>...</minimax:tool_call> blocks
-        let toolCallPattern = #"<minimax:tool_call>[\s\S]*?</minimax:tool_call>"#
-        if let regex = try? NSRegularExpression(pattern: toolCallPattern, options: [.caseInsensitive]) {
-            cleaned = regex.stringByReplacingMatches(in: cleaned, options: [], range: NSRange(cleaned.startIndex..., in: cleaned), withTemplate: "")
-        }
-        
-        // Remove any <invoke>...</invoke> blocks
-        let invokePattern = #"<invoke[\s\S]*?</invoke>"#
-        if let regex = try? NSRegularExpression(pattern: invokePattern, options: [.caseInsensitive]) {
-            cleaned = regex.stringByReplacingMatches(in: cleaned, options: [], range: NSRange(cleaned.startIndex..., in: cleaned), withTemplate: "")
-        }
-        
-        // Trim excessive whitespace/newlines
         cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Collapse multiple newlines into max 2
         while cleaned.contains("\n\n\n") {
             cleaned = cleaned.replacingOccurrences(of: "\n\n\n", with: "\n\n")
         }
-        
         return cleaned
+    }
+
+    /// Inline markdown (bold, italic, code, links) with whitespace and newlines
+    /// preserved, so AI replies stop showing raw ** and backticks. Falls back to
+    /// plain text if the string is not valid markdown.
+    private func attributed(_ text: String) -> AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(
+            interpretedSyntax: .inlineOnlyPreservingWhitespace
+        )
+        return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
     }
 
     var body: some View {
@@ -43,10 +43,8 @@ struct MessageBubbleView: View {
                 switch block {
                 case .text(let text):
                     textBubble(text, isUser: message.role == .user)
-
                 case .image(let data):
                     imageBubble(data)
-
                 case .toolCall(_, let name, let status):
                     toolStatusView(name: name, status: status)
                 }
@@ -56,9 +54,7 @@ struct MessageBubbleView: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                appeared = true
-            }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { appeared = true }
         }
     }
 
@@ -70,53 +66,43 @@ struct MessageBubbleView: View {
             if isUser { Spacer(minLength: 50) }
 
             if !isUser {
-                // AI avatar
                 ZStack {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.purple.opacity(0.8), Color.blue.opacity(0.6)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(Theme.accentGradient)
                         .frame(width: 24, height: 24)
-                    Image(systemName: "brain")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.onAccent)
                 }
                 .offset(y: -2)
+                .accessibilityHidden(true)
             }
 
             VStack(alignment: isUser ? .trailing : .leading, spacing: 2) {
                 let displayText = isUser ? text : cleanDisplayText(text)
-                
-                // Skip empty messages after cleaning
+
                 if !displayText.isEmpty {
-                    Text(displayText)
+                    Text(attributed(displayText))
                         .textSelection(.enabled)
-                        .font(.system(size: 13))
+                        .font(Theme.Font.body)
                         .lineSpacing(2)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(
                             isUser
-                                ? AnyShapeStyle(
-                                    LinearGradient(
-                                        colors: [Color.accentColor, Color.accentColor.opacity(0.85)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                : AnyShapeStyle(Color(nsColor: .controlBackgroundColor))
+                                ? AnyShapeStyle(Theme.userBubbleGradient)
+                                : AnyShapeStyle(Theme.aiBubble)
                         )
-                        .foregroundStyle(isUser ? .white : .primary)
-                        .clipShape(BubbleShape(isUser: isUser))
-                        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+                        .foregroundStyle(isUser ? Theme.onAccent : Theme.textPrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(isUser ? Color.clear : Theme.hairline, lineWidth: 0.5)
+                        )
 
                     Text(message.timestamp.formatted(.dateTime.hour().minute()))
-                        .font(.system(size: 9))
-                        .foregroundStyle(.quaternary)
+                        .font(Theme.Font.micro)
+                        .foregroundStyle(Theme.textTertiary)
                         .padding(.horizontal, 4)
                 }
             }
@@ -135,17 +121,10 @@ struct MessageBubbleView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(maxWidth: 260)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.2), .clear],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
+                        RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                            .strokeBorder(Theme.hairline, lineWidth: 1)
                     )
                     .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
 
@@ -153,11 +132,12 @@ struct MessageBubbleView: View {
                     Image(systemName: "camera.fill")
                         .font(.system(size: 8))
                     Text("Screenshot")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(Theme.Font.micro)
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.textSecondary)
                 .padding(.leading, 4)
             }
+            .accessibilityLabel("Screenshot from the iPhone")
         }
     }
 
@@ -166,47 +146,32 @@ struct MessageBubbleView: View {
     @ViewBuilder
     private func toolStatusView(name: String, status: ToolStatus) -> some View {
         HStack(spacing: 8) {
-            // Icon with animated ring for running state
             ZStack {
                 switch status {
                 case .running:
-                    Circle()
-                        .stroke(Color.accentColor.opacity(0.2), lineWidth: 2)
-                        .frame(width: 20, height: 20)
-                    Circle()
-                        .trim(from: 0, to: 0.3)
-                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                        .frame(width: 20, height: 20)
-                        .rotationEffect(.degrees(spinnerRotation))
-                    Image(systemName: toolIcon(name))
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(Color.accentColor)
+                    SpinnerRing(icon: toolIcon(name))
                 case .completed:
-                    Circle()
-                        .fill(Color.green.opacity(0.15))
-                        .frame(width: 20, height: 20)
+                    Circle().fill(Theme.statusLive.opacity(0.15)).frame(width: 20, height: 20)
                     Image(systemName: "checkmark")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Theme.statusLive)
                 case .failed:
-                    Circle()
-                        .fill(Color.red.opacity(0.15))
-                        .frame(width: 20, height: 20)
+                    Circle().fill(Theme.statusError.opacity(0.15)).frame(width: 20, height: 20)
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Theme.statusError)
                 }
             }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(toolDisplayName(name))
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(status.color)
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(status.themeColor)
 
                 if case .failed(let error) = status {
                     Text(error)
                         .font(.system(size: 9))
-                        .foregroundStyle(.red.opacity(0.8))
+                        .foregroundStyle(Theme.statusError.opacity(0.85))
                         .lineLimit(2)
                 }
             }
@@ -214,16 +179,14 @@ struct MessageBubbleView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(status.backgroundColor)
+            RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                .fill(status.themeColor.opacity(0.08))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(status.borderColor, lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                        .strokeBorder(status.themeColor.opacity(0.18), lineWidth: 0.5)
                 )
         )
     }
-
-    @State private var spinnerRotation: Double = 0
 
     private func toolIcon(_ name: String) -> String {
         switch name {
@@ -260,83 +223,39 @@ struct MessageBubbleView: View {
     }
 }
 
-// MARK: - Bubble Shape
+/// Self-animating spinner for a running tool. Fixes the previously-frozen arc
+/// (its rotation state was declared but never driven).
+private struct SpinnerRing: View {
+    let icon: String
+    @State private var spin = false
 
-struct BubbleShape: Shape {
-    let isUser: Bool
-
-    func path(in rect: CGRect) -> Path {
-        let r: CGFloat = 14
-        let tail: CGFloat = 4
-
-        var path = Path()
-
-        if isUser {
-            // Rounded rect with tail on bottom-right
-            path.addRoundedRect(in: CGRect(
-                x: rect.minX,
-                y: rect.minY,
-                width: rect.width - tail,
-                height: rect.height
-            ), cornerSize: CGSize(width: r, height: r))
-            // Small tail
-            path.move(to: CGPoint(x: rect.maxX - tail, y: rect.maxY - r))
-            path.addQuadCurve(
-                to: CGPoint(x: rect.maxX, y: rect.maxY),
-                control: CGPoint(x: rect.maxX - tail, y: rect.maxY)
-            )
-            path.addQuadCurve(
-                to: CGPoint(x: rect.maxX - tail - 6, y: rect.maxY),
-                control: CGPoint(x: rect.maxX - tail - 2, y: rect.maxY)
-            )
-        } else {
-            // Rounded rect with tail on bottom-left
-            path.addRoundedRect(in: CGRect(
-                x: rect.minX + tail,
-                y: rect.minY,
-                width: rect.width - tail,
-                height: rect.height
-            ), cornerSize: CGSize(width: r, height: r))
-            // Small tail
-            path.move(to: CGPoint(x: rect.minX + tail, y: rect.maxY - r))
-            path.addQuadCurve(
-                to: CGPoint(x: rect.minX, y: rect.maxY),
-                control: CGPoint(x: rect.minX + tail, y: rect.maxY)
-            )
-            path.addQuadCurve(
-                to: CGPoint(x: rect.minX + tail + 6, y: rect.maxY),
-                control: CGPoint(x: rect.minX + tail + 2, y: rect.maxY)
-            )
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Theme.accent.opacity(0.2), lineWidth: 2)
+                .frame(width: 20, height: 20)
+            Circle()
+                .trim(from: 0, to: 0.3)
+                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .frame(width: 20, height: 20)
+                .rotationEffect(.degrees(spin ? 360 : 0))
+                .animation(.linear(duration: 0.9).repeatForever(autoreverses: false), value: spin)
+            Image(systemName: icon)
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(Theme.accent)
         }
-
-        return path
+        .onAppear { spin = true }
     }
 }
 
-// MARK: - Tool Status Extensions
+// MARK: - Tool Status color mapping
 
 extension ToolStatus {
-    var color: Color {
+    var themeColor: Color {
         switch self {
-        case .running: return .accentColor
-        case .completed: return .green
-        case .failed: return .red
-        }
-    }
-
-    var backgroundColor: Color {
-        switch self {
-        case .running: return Color.accentColor.opacity(0.05)
-        case .completed: return Color.green.opacity(0.05)
-        case .failed: return Color.red.opacity(0.05)
-        }
-    }
-
-    var borderColor: Color {
-        switch self {
-        case .running: return Color.accentColor.opacity(0.15)
-        case .completed: return Color.green.opacity(0.15)
-        case .failed: return Color.red.opacity(0.15)
+        case .running: return Theme.accent
+        case .completed: return Theme.statusLive
+        case .failed: return Theme.statusError
         }
     }
 }

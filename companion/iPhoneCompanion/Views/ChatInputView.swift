@@ -8,6 +8,8 @@ struct ChatInputView: View {
     let onSend: () -> Void
     let onCancel: () -> Void
 
+    @State private var sendHovering = false
+
     private var canSend: Bool {
         !inputText.trimmingCharacters(in: .whitespaces).isEmpty && !isProcessing
     }
@@ -17,14 +19,14 @@ struct ChatInputView: View {
             ZStack(alignment: .leading) {
                 if inputText.isEmpty {
                     Text("Message...")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.quaternary)
+                        .font(Theme.Font.body)
+                        .foregroundStyle(Theme.textTertiary)
                         .padding(.leading, 12)
                 }
 
                 TextField("", text: $inputText)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 13))
+                    .font(Theme.Font.body)
                     .focused(isInputFocused)
                     .onSubmit { onSend() }
                     .disabled(isProcessing)
@@ -32,75 +34,57 @@ struct ChatInputView: View {
                     .padding(.vertical, 8)
             }
             .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(nsColor: .controlBackgroundColor))
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Theme.raised)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .strokeBorder(
-                                isInputFocused.wrappedValue
-                                    ? Color.accentColor.opacity(0.4)
-                                    : Color.primary.opacity(0.08),
+                                isInputFocused.wrappedValue ? Theme.accent.opacity(0.55) : Theme.hairline,
                                 lineWidth: 1
                             )
                     )
             )
             .animation(.easeOut(duration: 0.2), value: isInputFocused.wrappedValue)
 
-            // Send / Stop button
             if isProcessing {
                 Button(action: onCancel) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.red, .red.opacity(0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 30, height: 30)
-
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.white)
-                    }
+                    circleButton(fill: AnyShapeStyle(Theme.statusError), symbol: "stop.fill", size: 11)
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.escape, modifiers: [])
                 .transition(.scale.combined(with: .opacity))
+                .accessibilityLabel("Stop")
             } else {
                 Button(action: onSend) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                canSend
-                                    ? LinearGradient(
-                                        colors: [.accentColor, .accentColor.opacity(0.8)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                    : LinearGradient(
-                                        colors: [Color.primary.opacity(0.1), Color.primary.opacity(0.08)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                            )
-                            .frame(width: 30, height: 30)
-
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(canSend ? .white : .gray.opacity(0.3))
-                    }
+                    circleButton(
+                        fill: canSend ? AnyShapeStyle(Theme.accentGradient) : AnyShapeStyle(Theme.raised),
+                        symbol: "arrow.up",
+                        size: 13,
+                        tint: canSend ? Theme.onAccent : Theme.textTertiary
+                    )
                 }
                 .buttonStyle(.plain)
                 .disabled(!canSend)
                 .keyboardShortcut(.return, modifiers: [])
-                .scaleEffect(canSend ? 1.0 : 0.92)
+                .scaleEffect(canSend ? (sendHovering ? 1.08 : 1.0) : 0.92)
                 .animation(.spring(response: 0.25), value: canSend)
+                .animation(.spring(response: 0.25), value: sendHovering)
+                .onHover { sendHovering = $0 && canSend }
                 .transition(.scale.combined(with: .opacity))
+                .accessibilityLabel("Send")
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+    }
+
+    private func circleButton(fill: AnyShapeStyle, symbol: String, size: CGFloat,
+                              tint: Color = .white) -> some View {
+        ZStack {
+            Circle().fill(fill).frame(width: 30, height: 30)
+            Image(systemName: symbol)
+                .font(.system(size: size, weight: .bold))
+                .foregroundStyle(tint)
+        }
     }
 }

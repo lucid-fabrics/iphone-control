@@ -7,40 +7,41 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AA000001 /* CompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000001; };
-		AA000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002; };
-		AA000003 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000003; };
-		AA000004 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000004; };
-		AA000005 /* SuggestionChipsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000005; };
-		AA000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000006; };
-		AA000007 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000007; };
-		AA000008 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000008; };
-		AA000009 /* ToolDefinitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000009; };
-		AA000010 /* ClaudeAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000010; };
-		AA000011 /* OllamaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000011; };
-		AA000012 /* AIServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000012; };
-		AA000013 /* ScriptRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000013; };
-		AA000014 /* ToolExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000014; };
-		AA000015 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000015; };
-		AA000016 /* WindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000016; };
-		AA000017 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000017; };
-		AA000018 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB000018; };
-		AA000019 /* ModelFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000021; };
-		AA000020 /* OpenRouterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000022; };
-		AA000021 /* ClaudeCodeAuthHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000023; };
-		AA000022 /* InputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000024; };
-		AA000023 /* MiniMaxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000025; };
-		AA000030 /* SSEStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000030; };
-		AA000031 /* AIServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000031; };
-		AA000032 /* ToolOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000032; };
-		AA000033 /* AccessibilityHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000033; };
-		AA000034 /* ChatInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000034; };
-		AA000035 /* ChatToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000035; };
-		AA000036 /* ProviderSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000036; };
-		AA000037 /* ModelConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000037; };
+		3A4C26CC652AF0A3FC3C19C0 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5421C5F06E5D895CB95F50B2 /* Theme.swift */; };
+		AA000001 /* CompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000001 /* CompanionApp.swift */; };
+		AA000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002 /* AppDelegate.swift */; };
+		AA000003 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000003 /* ChatView.swift */; };
+		AA000004 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000004 /* MessageBubbleView.swift */; };
+		AA000005 /* SuggestionChipsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000005 /* SuggestionChipsView.swift */; };
+		AA000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000006 /* SettingsView.swift */; };
+		AA000007 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000007 /* ChatMessage.swift */; };
+		AA000008 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000008 /* Conversation.swift */; };
+		AA000009 /* ToolDefinitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000009 /* ToolDefinitions.swift */; };
+		AA000010 /* ClaudeAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000010 /* ClaudeAPIService.swift */; };
+		AA000011 /* OllamaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000011 /* OllamaService.swift */; };
+		AA000012 /* AIServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000012 /* AIServiceProtocol.swift */; };
+		AA000013 /* ScriptRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000013 /* ScriptRunner.swift */; };
+		AA000014 /* ToolExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000014 /* ToolExecutor.swift */; };
+		AA000015 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000015 /* KeychainHelper.swift */; };
+		AA000016 /* WindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000016 /* WindowManager.swift */; };
+		AA000017 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000017 /* Constants.swift */; };
+		AA000018 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB000018 /* Assets.xcassets */; };
+		AA000019 /* ModelFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000021 /* ModelFetcher.swift */; };
+		AA000020 /* OpenRouterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000022 /* OpenRouterService.swift */; };
+		AA000021 /* ClaudeCodeAuthHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000023 /* ClaudeCodeAuthHelper.swift */; };
+		AA000022 /* InputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000024 /* InputController.swift */; };
+		AA000023 /* MiniMaxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000025 /* MiniMaxService.swift */; };
+		AA000030 /* SSEStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000030 /* SSEStreamParser.swift */; };
+		AA000031 /* AIServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000031 /* AIServiceFactory.swift */; };
+		AA000032 /* ToolOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000032 /* ToolOrchestrator.swift */; };
+		AA000033 /* AccessibilityHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000033 /* AccessibilityHelper.swift */; };
+		AA000034 /* ChatInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000034 /* ChatInputView.swift */; };
+		AA000035 /* ChatToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000035 /* ChatToolbarView.swift */; };
+		AA000037 /* ModelConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000037 /* ModelConfigView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5421C5F06E5D895CB95F50B2 /* Theme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AB000001 /* CompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionApp.swift; sourceTree = "<group>"; };
 		AB000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AB000003 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
@@ -72,7 +73,6 @@
 		AB000033 /* AccessibilityHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHelper.swift; sourceTree = "<group>"; };
 		AB000034 /* ChatInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputView.swift; sourceTree = "<group>"; };
 		AB000035 /* ChatToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatToolbarView.swift; sourceTree = "<group>"; };
-		AB000036 /* ProviderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSettingsView.swift; sourceTree = "<group>"; };
 		AB000037 /* ModelConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelConfigView.swift; sourceTree = "<group>"; };
 		AB000099 /* iPhoneCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iPhoneCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -129,7 +129,6 @@
 				AB000004 /* MessageBubbleView.swift */,
 				AB000005 /* SuggestionChipsView.swift */,
 				AB000006 /* SettingsView.swift */,
-				AB000036 /* ProviderSettingsView.swift */,
 				AB000037 /* ModelConfigView.swift */,
 			);
 			path = Views;
@@ -172,6 +171,7 @@
 				AB000017 /* Constants.swift */,
 				AB000023 /* ClaudeCodeAuthHelper.swift */,
 				AB000033 /* AccessibilityHelper.swift */,
+				5421C5F06E5D895CB95F50B2 /* Theme.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -276,8 +276,8 @@
 				AA000033 /* AccessibilityHelper.swift in Sources */,
 				AA000034 /* ChatInputView.swift in Sources */,
 				AA000035 /* ChatToolbarView.swift in Sources */,
-				AA000036 /* ProviderSettingsView.swift in Sources */,
 				AA000037 /* ModelConfigView.swift in Sources */,
+				3A4C26CC652AF0A3FC3C19C0 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -400,7 +400,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = AE000099 /* Project object */;
 }
