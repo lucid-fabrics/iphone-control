@@ -29,26 +29,36 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-HELPER="$SCRIPT_DIR/helpers/ocr-image"
-HELPER_SRC="$HELPER.swift"
-if [[ ! -x "$HELPER" ]] || [[ "$HELPER_SRC" -nt "$HELPER" ]]; then
-    swiftc -O "$HELPER_SRC" -o "$HELPER" 2>/dev/null || {
-        echo "Error: Failed to compile ocr-image helper" >&2
-        exit 1
-    }
-fi
-
 window_json=$("$SCRIPT_DIR/find-window.sh")
 parse_window_bounds "$window_json"
 
-img=$(mktemp /tmp/read-XXXXXX.png)
-trap 'rm -f "$img"' EXIT
-"$SCRIPT_DIR/screenshot.sh" --native "$img" > /dev/null
-
-ocr=$("$HELPER" "$img" 2>/dev/null) || {
-    echo "Error: OCR failed" >&2
-    exit 1
-}
+# Fast path: the resident daemon captures natively and keeps the Vision model
+# warm (~0.2s vs ~1.3s). Same output format as ocr-image on a native screenshot,
+# so the parsing below is shared. Fallback: spawn the capture+OCR pipeline.
+ocr=""
+if [[ -z "${ICTL_NO_DAEMON:-}" ]]; then
+    engine=$(input_engine "$SCRIPT_DIR/helpers" 2>/dev/null) || engine=""
+    if [[ -n "$engine" ]]; then
+        ocr=$("$engine" send read 2>/dev/null) || ocr=""
+    fi
+fi
+if [[ -z "$ocr" ]]; then
+    HELPER="$SCRIPT_DIR/helpers/ocr-image"
+    HELPER_SRC="$HELPER.swift"
+    if [[ ! -x "$HELPER" ]] || [[ "$HELPER_SRC" -nt "$HELPER" ]]; then
+        swiftc -O "$HELPER_SRC" -o "$HELPER" 2>/dev/null || {
+            echo "Error: Failed to compile ocr-image helper" >&2
+            exit 1
+        }
+    fi
+    img=$(mktemp /tmp/read-XXXXXX.png)
+    trap 'rm -f "$img"' EXIT
+    "$SCRIPT_DIR/screenshot.sh" --native "$img" > /dev/null
+    ocr=$("$HELPER" "$img" 2>/dev/null) || {
+        echo "Error: OCR failed" >&2
+        exit 1
+    }
+fi
 
 first=true
 $as_json && printf '['

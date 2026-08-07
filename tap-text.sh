@@ -33,16 +33,6 @@ if ! [[ "$index" =~ ^[1-9][0-9]*$ ]]; then
     exit 1
 fi
 
-# Auto-compile OCR helper if missing or outdated (same pattern as find-window.sh)
-HELPER="$SCRIPT_DIR/helpers/ocr-image"
-HELPER_SRC="$HELPER.swift"
-if [[ ! -x "$HELPER" ]] || [[ "$HELPER_SRC" -nt "$HELPER" ]]; then
-    swiftc -O "$HELPER_SRC" -o "$HELPER" 2>/dev/null || {
-        echo "Error: Failed to compile ocr-image helper" >&2
-        exit 1
-    }
-fi
-
 # SCALE converts native-capture pixel coords to content points
 window_json=$("$SCRIPT_DIR/find-window.sh")
 parse_window_bounds "$window_json"
@@ -65,14 +55,32 @@ if $cached && [[ -f "$CACHE_FILE" ]]; then
     fi
 fi
 
-img=$(mktemp /tmp/tap-text-XXXXXX.png)
-trap 'rm -f "$img"' EXIT
-"$SCRIPT_DIR/screenshot.sh" --native "$img" > /dev/null
-
-ocr_output=$("$HELPER" "$img" 2>/dev/null) || {
-    echo "Error: OCR failed" >&2
-    exit 1
-}
+# OCR: daemon fast path (native capture + warm Vision, ~0.2s), else the
+# screenshot + ocr-image pipeline (~1s). Same output format either way.
+ocr_output=""
+if [[ -z "${ICTL_NO_DAEMON:-}" ]]; then
+    engine=$(input_engine "$SCRIPT_DIR/helpers" 2>/dev/null) || engine=""
+    if [[ -n "$engine" ]]; then
+        ocr_output=$("$engine" send read 2>/dev/null) || ocr_output=""
+    fi
+fi
+if [[ -z "$ocr_output" ]]; then
+    HELPER="$SCRIPT_DIR/helpers/ocr-image"
+    HELPER_SRC="$HELPER.swift"
+    if [[ ! -x "$HELPER" ]] || [[ "$HELPER_SRC" -nt "$HELPER" ]]; then
+        swiftc -O "$HELPER_SRC" -o "$HELPER" 2>/dev/null || {
+            echo "Error: Failed to compile ocr-image helper" >&2
+            exit 1
+        }
+    fi
+    img=$(mktemp /tmp/tap-text-XXXXXX.png)
+    trap 'rm -f "$img"' EXIT
+    "$SCRIPT_DIR/screenshot.sh" --native "$img" > /dev/null
+    ocr_output=$("$HELPER" "$img" 2>/dev/null) || {
+        echo "Error: OCR failed" >&2
+        exit 1
+    }
+fi
 
 exact=()
 partial=()

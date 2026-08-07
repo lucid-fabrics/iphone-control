@@ -21,6 +21,11 @@
 //   input keyfor <char>                print "<keycode> <flagsRawValue>" for one
 //                                       character on the ACTIVE layout (no phone
 //                                       needed - pure macOS layout query)
+//   input serve                        run as a resident daemon on a unix socket:
+//                                       warm Vision OCR, native capture, one input
+//                                       session held across commands (idle-closed)
+//   input send <verb> [args...]        send one command to the daemon, starting it
+//                                       if needed; falls back is the caller's job
 //
 // Global flags (before the verb):
 //   --no-restore    leave focus on iPhone Mirroring (for chained actions)
@@ -52,6 +57,14 @@ enum Tune {
     static let cacheKeyPath = "/tmp/iphone-mirror-window.key"
     static let stampPath = "/tmp/iphone-control-last-post"
     static let cacheTTL: TimeInterval = 30
+    static let socketPath = "/tmp/iphone-control-daemon.sock"
+    static let daemonSessionIdle = 1.5    // close the input session after this quiet
+    static let daemonExitIdle = 300.0     // daemon exits after this long unused
+    static let stillSize = 32             // downscale width for stillness compare
+    static let stillTolerance = 2.0       // mean abs pixel diff considered unchanged
+    static let stillInterval = 0.12
+    static let stillLeadIn = 0.2
+    static let stillConfirmations = 2
 }
 
 /// Set once a session is open. Any exit path - die(), a signal, a Swift trap
@@ -178,15 +191,32 @@ if verb == "keyfor" {
     exit(0)
 }
 
-let win = resolveWindow()
+// Window info is resolved lazily and can be refreshed: the one-shot CLI path
+// resolves once, while the daemon re-resolves per command so a moved window
+// never receives taps at stale coordinates.
+var winCache: WindowInfo?
+func currentWin() -> WindowInfo {
+    if let w = winCache { return w }
+    let w = resolveWindow()
+    winCache = w
+    return w
+}
+
+if verb == "serve" {
+    runServe()   // never returns
+}
+if verb == "send" {
+    exit(runSend(args))
+}
 
 if verb == "bounds" {
-    print(win.json)
+    print(currentWin().json)
     exit(0)
 }
 
 /// Content point -> absolute screen point, with bounds validation.
 func toScreen(_ x: Double, _ y: Double) -> CGPoint {
+    let win = currentWin()
     guard x >= 0, x < Double(win.contentWidth), y >= 0, y < Double(win.contentHeight) else {
         die("Coordinates (\(Int(x)), \(Int(y))) out of bounds (\(win.contentWidth)x\(win.contentHeight))")
     }

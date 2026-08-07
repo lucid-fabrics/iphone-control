@@ -17,6 +17,27 @@ if [[ "${1:-}" == "--native" ]]; then
 fi
 OUTPUT="${1:-/tmp/iphone-screen.png}"
 
+# The daemon writes from ITS working directory - relative paths must be
+# absolutized here, in the caller's cwd, before crossing the socket.
+case "$OUTPUT" in
+    /*) ;;
+    *) OUTPUT="$PWD/$OUTPUT" ;;
+esac
+
+# Fast path: resident daemon captures natively via ScreenCaptureKit (~150ms vs
+# ~270ms) with identical crop/normalize geometry. Fallback: screencapture+sips.
+if [[ -z "${ICTL_NO_DAEMON:-}" ]]; then
+    engine=$(input_engine "$SCRIPT_DIR/helpers" 2>/dev/null) || engine=""
+    if [[ -n "$engine" ]]; then
+        mode="norm"
+        (( NATIVE )) && mode="native"
+        if "$engine" send shot "$OUTPUT" "$mode" > /dev/null 2>&1; then
+            echo "$OUTPUT"
+            exit 0
+        fi
+    fi
+fi
+
 # Get window info (includes content bounds and window_id)
 window_json=$("$SCRIPT_DIR/find-window.sh")
 parse_window_bounds "$window_json"

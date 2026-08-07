@@ -112,11 +112,23 @@ way to execute a known sequence:
 printf 'tap 54 598\ntap 138 598\nkey 36 0\n' | ./helpers/input batch
 ```
 
+The engine also runs as a **resident daemon** (`helpers/input serve`, auto-started
+on first use by `helpers/input send <verb...>`): it keeps the Vision OCR model
+warm, captures natively via ScreenCaptureKit, and holds one input session open
+across commands, closing it (restoring the user's focus and cursor) after 1.5s
+idle. `read.sh`, `wait.sh`, `screenshot.sh` and `tap-text.sh` use it automatically
+and fall back to their process pipelines if it is unavailable. Set
+`ICTL_NO_DAEMON=1` to disable. The daemon exits on its own after 5 minutes idle;
+`helpers/input send quit` stops it now.
+
 | Path | Cost |
 |------|------|
 | One action, focus stolen and returned | ~0.5s (macOS app activation dominates) |
 | One action, mirroring already frontmost | ~0.15s |
 | Each extra action inside a batch | ~0.03s |
+| Screenshot via daemon | ~0.1s (was ~0.27s) |
+| `read` / `tap-text` OCR via daemon (warm) | ~0.2-0.4s (was ~1-1.3s) |
+| `wait text` present-immediately via daemon | ~0.25s (was ~3.8s) |
 
 ## Platform constraints worth knowing
 

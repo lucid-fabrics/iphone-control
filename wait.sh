@@ -48,6 +48,16 @@ start=$(python3 -c 'import time; print(time.time())')
 elapsed() { python3 -c "import time; print(f'{time.time() - $start:.2f}')"; }
 expired() { python3 -c "import time; print(1 if time.time() - $start >= $timeout else 0)"; }
 
+# Resolve the daemon once: when reachable, both modes get much cheaper
+# (native capture + warm OCR instead of process pipelines per poll).
+DAEMON=""
+if [[ -z "${ICTL_NO_DAEMON:-}" ]]; then
+    DAEMON=$(input_engine "$SCRIPT_DIR/helpers" 2>/dev/null) || DAEMON=""
+    if [[ -n "$DAEMON" ]] && ! "$DAEMON" send ping > /dev/null 2>&1; then
+        DAEMON=""
+    fi
+fi
+
 # Mirroring delivers a live video stream, so two captures of a frozen screen are
 # never byte-identical and hashing never converges. Downscaling hard collapses
 # the codec noise; frames are then compared with a tolerance.
@@ -79,6 +89,18 @@ PYEOF
 }
 
 if [[ "$mode" == "still" ]]; then
+    # Daemon path: in-process frame diffing, no capture/convert/compare spawns.
+    # Its verdict is authoritative - a timeout must NOT fall through to the shell
+    # loop, which would double the total wait.
+    if [[ -n "$DAEMON" ]]; then
+        ms=$(python3 -c "print(int($timeout * 1000))")
+        if out=$("$DAEMON" send still "$ms" 2>/dev/null); then
+            echo "still after ${out}s"
+            exit 0
+        fi
+        echo "Timeout: screen still changing after ${timeout}s" >&2
+        exit 1
+    fi
     window_json=$("$SCRIPT_DIR/find-window.sh")
     parse_window_bounds "$window_json"
     prev="/tmp/wait-prev-$$.bmp"
@@ -110,8 +132,21 @@ if [[ "$mode" == "still" ]]; then
     done
 fi
 
+# Presence poll: daemon read (~0.2s warm) when available, else tap-text --dry
+# (~1s: screenshot + OCR helper spawn). Text fields only - coordinates are
+# stripped before matching so a numeric needle can't match a box geometry.
+present() {
+    if [[ -n "$DAEMON" ]]; then
+        "$DAEMON" send read 2>/dev/null \
+            | awk -F'|' '{t=$1; for(i=2;i<=NF-4;i++) t=t"|"$i; print t}' \
+            | grep -qiF -- "$needle"
+    else
+        "$SCRIPT_DIR/tap-text.sh" "$needle" --dry > /dev/null 2>&1
+    fi
+}
+
 while true; do
-    if "$SCRIPT_DIR/tap-text.sh" "$needle" --dry > /dev/null 2>&1; then
+    if present; then
         found=true
     else
         found=false
