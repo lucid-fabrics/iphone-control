@@ -21,15 +21,18 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Backend picker
+                // Backend picker. A menu (not segmented): 5 long labels overflow the
+                // panel width as a segmented control, which forced the whole settings
+                // content wider than the window and clipped it.
                 settingsSection("AI Backend") {
                     Picker("Backend", selection: $conversation.aiBackend) {
                         ForEach(AIBackend.allCases, id: \.self) { backend in
                             Text(backend.rawValue).tag(backend)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
                     .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 // Claude Code
@@ -82,6 +85,7 @@ struct SettingsView: View {
                 }
             }
             .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onAppear {
             conversation.loadAllAPIKeys()

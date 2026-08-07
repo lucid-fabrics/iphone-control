@@ -7,36 +7,36 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
-        ZStack {
-            // Real vibrancy: blurs the desktop behind the (non-opaque) panel, with a
-            // legibility tint over it. Clipped to the phone's corner radius with a
-            // hairline bezel so, docked flush, the glass reads as continuing from the
-            // device into the console.
-            VisualEffectBackground()
-            Theme.surfaceTint
-        }
-        .overlay {
-            VStack(spacing: 0) {
-                ChatToolbarView(
-                    showSettings: showSettings,
-                    onBack: { showSettings = false },
-                    onClear: {
-                        withAnimation(.spring(response: 0.3)) {
-                            conversation.clearHistory()
-                        }
-                    },
-                    onSettings: { showSettings = true },
-                    onDock: { redock() }
-                )
-                .zIndex(1)
+        // A plain top-to-bottom VStack as the root guarantees the header sits at
+        // the top by construction. The glass is its .background so it fills behind.
+        VStack(spacing: 0) {
+            ChatToolbarView(
+                showSettings: showSettings,
+                onBack: { showSettings = false },
+                onClear: {
+                    withAnimation(.spring(response: 0.3)) {
+                        conversation.clearHistory()
+                    }
+                },
+                onSettings: { showSettings = true },
+                onDock: { redock() }
+            )
+            .zIndex(1)
 
-                if showSettings {
-                    SettingsView()
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                } else {
-                    chatContent
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                }
+            if showSettings {
+                SettingsView()
+                    .transition(.opacity)
+            } else {
+                chatContent
+                    .transition(.opacity)
+            }
+        }
+        .background {
+            // Real vibrancy blurs the desktop behind the non-opaque panel, with a
+            // dense legibility tint over it.
+            ZStack {
+                VisualEffectBackground()
+                Theme.surfaceTint
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.window, style: .continuous))

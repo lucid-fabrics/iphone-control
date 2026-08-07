@@ -32,7 +32,11 @@ struct ChatToolbarView: View {
                     .font(Theme.Font.title)
 
                 Spacer()
-                Color.clear.frame(width: 50)   // balance the back button width
+                // Balance the back-button width so the title stays centered. Height
+                // MUST be constrained: an unconstrained Color.clear is vertically
+                // greedy and stretched the whole toolbar to half the panel, which
+                // centered the title ~200px down in Settings.
+                Color.clear.frame(width: 50, height: 0)
             } else {
                 // No title chrome (Raycast-style): the top is a clean drag region
                 // with only the essential controls, right-aligned.
