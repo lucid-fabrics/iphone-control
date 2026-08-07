@@ -46,6 +46,7 @@ enum Constants {
     static let openRouterAPIURL = "https://openrouter.ai/api/v1/chat/completions"
     static let openRouterModelsURL = "https://openrouter.ai/api/v1/models"
     static let minimaxAPIURL = "https://api.minimax.io/v1/chat/completions"
+    static let minimaxModelsURL = "https://api.minimax.io/v1/models"
 
     // MARK: - Default Models
 
@@ -54,7 +55,7 @@ enum Constants {
     static let defaultOpenRouterVisionModel = "google/gemma-3-12b-it:free"
     static let defaultOllamaURL = "http://localhost:11434"
     static let defaultOllamaModel = "llama3.1"
-    static let defaultMiniMaxModel = "MiniMax-M2.7"
+    static let defaultMiniMaxModel = "MiniMax-M3"
 
     // MARK: - AI Request Parameters
 
@@ -103,6 +104,9 @@ enum Constants {
 
     // MARK: - System Prompt
 
+    // Prose prompt: line breaks are meaningful string content, so wrapping to the
+    // column limit would change the text. Length rule is scoped off for this block.
+    // swiftlint:disable line_length
     static let systemPrompt = """
         You control an iPhone through iPhone Mirroring on macOS. You have tools to tap, swipe, type, take screenshots, open apps, and navigate.
 
@@ -133,6 +137,7 @@ enum Constants {
         - Never chain multiple actions without a verification screenshot between them
         - Quality over speed - one correct action is better than three wrong ones
         """
+    // swiftlint:enable line_length
 
     // Fallback static list if API fetch fails
     static let fallbackClaudeModels: [(id: String, name: String)] = [
@@ -151,6 +156,7 @@ enum Constants {
     ]
 
     static let fallbackMiniMaxModels: [(id: String, name: String)] = [
+        ("MiniMax-M3", "MiniMax M3"),
         ("MiniMax-M2.7", "MiniMax M2.7"),
         ("MiniMax-M2.7-highspeed", "MiniMax M2.7 Highspeed"),
         ("MiniMax-M2.5", "MiniMax M2.5"),

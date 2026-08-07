@@ -24,7 +24,7 @@ enum ModelFetcher {
             }
 
             if httpResponse.statusCode == 403 {
-                // Key valid but no access to /v1/models — validate via messages endpoint
+                // Key valid but no access to /v1/models - validate via messages endpoint
                 let valid = await validateKey(apiKey: apiKey)
                 return ([], valid ? nil : "Invalid API key")
             }
@@ -48,11 +48,11 @@ enum ModelFetcher {
             }
 
             // Sort: opus > sonnet > haiku
-            models.sort { a, b in
-                let tierA = modelTier(a.id)
-                let tierB = modelTier(b.id)
+            models.sort { lhs, rhs in
+                let tierA = modelTier(lhs.id)
+                let tierB = modelTier(rhs.id)
                 if tierA != tierB { return tierA < tierB }
-                return a.id > b.id
+                return lhs.id > rhs.id
             }
 
             return (models, nil)
@@ -68,12 +68,12 @@ enum ModelFetcher {
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
 
-        // Minimal request — will fail with 400 (bad request) if key is valid but request is incomplete
+        // Minimal request - will fail with 400 (bad request) if key is valid but request is incomplete
         // Will fail with 401 if key is invalid
         let body: [String: Any] = [
             "model": "claude-haiku-3-5-20241022",
             "max_tokens": 1,
-            "messages": [["role": "user", "content": "hi"]],
+            "messages": [["role": "user", "content": "hi"]]
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
@@ -89,6 +89,9 @@ enum ModelFetcher {
 
     // MARK: - OpenRouter Models
 
+    // Long provider-support OR-chain keeps this just over the limit; splitting it out
+    // would not make it clearer. Pre-existing, unrelated to model detection.
+    // swiftlint:disable:next cyclomatic_complexity
     static func fetchOpenRouterModels(apiKey: String) async -> (models: [ClaudeModel], error: String?) {
         guard !apiKey.isEmpty else { return ([], "No API key") }
 
@@ -141,11 +144,11 @@ enum ModelFetcher {
             }
 
             // Sort: anthropic first, then others
-            models.sort { a, b in
-                let aIsAnthropic = a.id.hasPrefix("anthropic/")
-                let bIsAnthropic = b.id.hasPrefix("anthropic/")
+            models.sort { lhs, rhs in
+                let aIsAnthropic = lhs.id.hasPrefix("anthropic/")
+                let bIsAnthropic = rhs.id.hasPrefix("anthropic/")
                 if aIsAnthropic != bIsAnthropic { return aIsAnthropic }
-                return a.name < b.name
+                return lhs.name < rhs.name
             }
 
             return (models, nil)
@@ -156,38 +159,56 @@ enum ModelFetcher {
 
     // MARK: - MiniMax Models
 
-    /// MiniMax doesn't expose a /v1/models endpoint — validate the key via a minimal
-    /// chat request, then return the known static model list.
+    /// Live-detect MiniMax models from the OpenAI-compatible GET /v1/models endpoint,
+    /// so newly released ids (M3, M4, ...) appear automatically. Falls back to the
+    /// static list only if the endpoint is unreachable or returns nothing usable.
     static func fetchMinimaxModels(apiKey: String) async -> (models: [ClaudeModel], error: String?) {
         guard !apiKey.isEmpty else { return ([], "No API key") }
 
-        var request = URLRequest(url: URL(string: Constants.minimaxAPIURL)!)
-        request.httpMethod = "POST"
+        var request = URLRequest(url: URL(string: Constants.minimaxModelsURL)!)
+        request.httpMethod = "GET"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: Any] = [
-            "model": "MiniMax-Text-01",
-            "max_tokens": 1,
-            "messages": [["role": "user", "content": "hi"]],
-        ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
-                return ([], "No response")
+                return (fallbackMinimaxModels, "No response, using defaults")
             }
             if httpResponse.statusCode == 401 {
                 return ([], "Invalid API key")
             }
-            // 200 or 400 (bad request) both mean the key is valid
-        } catch {
-            return ([], error.localizedDescription)
-        }
+            guard httpResponse.statusCode == 200,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let entries = json["data"] as? [[String: Any]]
+            else {
+                // Older accounts / regions may still 404 this endpoint.
+                return (fallbackMinimaxModels, "Model list unavailable, using defaults")
+            }
 
-        let models = Constants.fallbackMiniMaxModels.map { ClaudeModel(id: $0.id, name: $0.name) }
-        return (models, nil)
+            // Newest first (by created timestamp). The id IS the value sent to the
+            // chat endpoint; derive a readable name from it. Drop embedding models.
+            let models = entries
+                .compactMap { entry -> (id: String, created: Int)? in
+                    guard let id = entry["id"] as? String, !id.isEmpty else { return nil }
+                    return (id, entry["created"] as? Int ?? 0)
+                }
+                .filter { !$0.id.lowercased().contains("embo") }
+                .sorted { $0.created > $1.created }
+                .map { ClaudeModel(id: $0.id, name: minimaxDisplayName(for: $0.id)) }
+
+            return models.isEmpty ? (fallbackMinimaxModels, nil) : (models, nil)
+        } catch {
+            return (fallbackMinimaxModels, error.localizedDescription)
+        }
+    }
+
+    private static var fallbackMinimaxModels: [ClaudeModel] {
+        Constants.fallbackMiniMaxModels.map { ClaudeModel(id: $0.id, name: $0.name) }
+    }
+
+    /// "MiniMax-M3" -> "MiniMax M3", "MiniMax-Text-01" -> "MiniMax Text 01".
+    private static func minimaxDisplayName(for identifier: String) -> String {
+        identifier.replacingOccurrences(of: "-", with: " ")
     }
 
     // MARK: - Model Capabilities
@@ -210,7 +231,7 @@ enum ModelFetcher {
                   let modelsArray = json["data"] as? [[String: Any]]
             else { return nil }
 
-            // Find our model — handle :free suffix matching
+            // Find our model - handle :free suffix matching
             let baseId = modelId.replacingOccurrences(of: ":free", with: "")
             guard let model = modelsArray.first(where: { ($0["id"] as? String) == modelId })
                     ?? modelsArray.first(where: { ($0["id"] as? String) == baseId })
