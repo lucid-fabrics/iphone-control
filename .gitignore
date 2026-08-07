@@ -9,3 +9,4 @@ helpers/ocr-image
 xcuserdata/
 tests/live/results/
 helpers/input
+helpers/event-logger

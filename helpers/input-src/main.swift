@@ -52,6 +52,7 @@ enum Tune {
     static let iconDragSpeed = 0.45          // px per ms
     static let iconDragStepMs = 8.0
     static let iconDragLiftHold = 0.17
+    static let iconDragLandingSettle = 0.13   // measured human pause, still, before release
     static let bundleID = "com.apple.ScreenContinuity"
     static let cachePath = "/tmp/iphone-mirror-window.json"
     static let cacheKeyPath = "/tmp/iphone-mirror-window.key"
