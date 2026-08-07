@@ -52,7 +52,8 @@ struct ChatToolbarView: View {
         .padding(.leading, showSettings ? 14 : leadingInset)
         .padding(.trailing, 14)
         .padding(.vertical, 10)
-        .background(Theme.raised)
+        // No fill: the top strip stays the SAME continuous material as the body
+        // (a raised fill here read as two-tone banding against the panel).
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Theme.hairline)

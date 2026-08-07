@@ -37,6 +37,7 @@ private struct SuggestionChip: View {
             HStack(spacing: 5) {
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.accent)   // one small accent cue, neutral otherwise
                 Text(text)
                     .font(Theme.Font.caption)
             }
@@ -44,10 +45,10 @@ private struct SuggestionChip: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(hovering ? Theme.accent.opacity(0.28) : Theme.accent.opacity(0.18))
-                    .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.3), lineWidth: 0.5))
+                    .fill(hovering ? Theme.accent.opacity(0.16) : Theme.raised)
+                    .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 0.5))
             )
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(hovering ? Theme.accent : Theme.textSecondary)
         }
         .buttonStyle(.plain)
         .contentShape(Capsule())

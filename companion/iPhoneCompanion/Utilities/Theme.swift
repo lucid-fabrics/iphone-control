@@ -22,12 +22,12 @@ enum Theme {
     /// let the desktop bleed through and killed contrast, which read as "window
     /// alpha set to 0.6" rather than designed glass. This is the biggest single
     /// lever on looking finished.
-    static let surfaceTint = dynamicColor(light: 0xF4F4F6, dark: 0x1C1C20, alpha: 0.88)
-    static let raised = dynamicColor(light: 0xFFFFFF, dark: 0x2C2C34, alpha: 0.92)
+    static let surfaceTint = dynamicColor(light: 0xF4F4F6, dark: 0x1C1C20, alpha: 0.82)
+    static let raised = dynamicColor(light: 0xFFFFFF, dark: 0x2C2C34, alpha: 0.6)
     static let hairline = dynamicColor(light: 0x000000, dark: 0xFFFFFF, alpha: 0.10)
-    static let bezel = dynamicColor(light: 0x000000, dark: 0xFFFFFF, alpha: 0.14)
-    /// Faint top inner highlight, the lit-glass edge.
-    static let topSheen = dynamicColor(light: 0xFFFFFF, dark: 0xFFFFFF, alpha: 0.06)
+    static let bezel = dynamicColor(light: 0x000000, dark: 0xFFFFFF, alpha: 0.16)
+    /// Bright top-edge rim-light: the cue that says "glass" rather than matte panel.
+    static let topSheen = dynamicColor(light: 0xFFFFFF, dark: 0xFFFFFF, alpha: 0.12)
 
     // MARK: - Text
 
