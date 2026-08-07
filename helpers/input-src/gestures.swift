@@ -97,21 +97,46 @@ func doScroll(_ p: CGPoint, dy: Double) {
     }
 }
 
-/// Human-like drag segment: ~125Hz, subpixel positions, smoothstep velocity and
-/// cross-track jitter. A robotic straight-line drag is not tracked by SpringBoard.
+/// Median normalized displacement-vs-time curve extracted from 7 recorded HUMAN
+/// icon drags (see helpers/event-logger.swift): gentle start, a ~2.3x velocity
+/// burst around 30-40% of the movement, then a long tapering landing where the
+/// final 15% of time covers almost no distance. SpringBoard tracks this shape
+/// far more reliably than a symmetric ease. Keep in sync with the JS copy in
+/// helpers/common.sh jxa_icon_drag_body.
+let humanDragCurve: [Double] = [
+    0.0, 0.031, 0.072, 0.108, 0.163, 0.22, 0.326, 0.441, 0.558, 0.64,
+    0.683, 0.756, 0.801, 0.831, 0.889, 0.931, 0.983, 0.985, 0.994, 1.0, 1.0
+]
+
+func humanCurveAt(_ t: Double) -> Double {
+    let clamped = max(0.0, min(1.0, t))
+    let x = clamped * Double(humanDragCurve.count - 1)
+    let i = min(humanDragCurve.count - 2, Int(x))
+    let frac = x - Double(i)
+    return humanDragCurve[i] + (humanDragCurve[i + 1] - humanDragCurve[i]) * frac
+}
+
+/// Human-like drag segment: ~125Hz, subpixel positions, the measured human
+/// velocity curve, and a curved path. Humans do not move in straight lines -
+/// measured mean deviation was 3.3px, mostly a single bow, so the path arcs
+/// (deterministically, alternating side by origin parity) with light noise on
+/// top. A robotic straight-line drag is not tracked by SpringBoard.
 func dragSegment(_ a: CGPoint, _ b: CGPoint) {
     let dx = b.x - a.x, dy = b.y - a.y
     let dist = max(1.0, (dx * dx + dy * dy).squareRoot())
     let n = max(1, Int((max(300.0, dist / Tune.iconDragSpeed) / Tune.iconDragStepMs).rounded()))
+    let bowSide: Double = (Int(a.x + a.y) % 2 == 0) ? 1 : -1
+    let bowAmp = min(5.0, dist * 0.03) * bowSide
     for i in 1...n {
         Thread.sleep(forTimeInterval: Tune.iconDragStepMs / 1000.0)
         let t = Double(i) / Double(n)
-        let f = t * t * (3 - 2 * t)
-        let jitter = sin(t * .pi * 2.3) * 1.2
-            + ((Double(i) * 0.37).truncatingRemainder(dividingBy: 1) - 0.5) * 0.6
+        let f = humanCurveAt(t)
+        let bow = sin(t * .pi) * bowAmp
+        let noise = ((Double(i) * 0.37).truncatingRemainder(dividingBy: 1) - 0.5) * 0.6
+        let off = bow + noise
         postMouse(.leftMouseDragged,
-                  CGPoint(x: a.x + dx * f + (-dy / dist) * jitter,
-                          y: a.y + dy * f + (dx / dist) * jitter),
+                  CGPoint(x: a.x + dx * f + (-dy / dist) * off,
+                          y: a.y + dy * f + (dx / dist) * off),
                   pressure: 1.0)
     }
 }
@@ -142,6 +167,11 @@ func doDrag(_ a: CGPoint, _ b: CGPoint, hoverMs: Double, via: CGPoint?) {
         dragSegment(a, b)
     }
     dragHover(b, seconds: hoverMs / 1000.0)
+    // Land still on the exact drop point before releasing, like a human settling
+    // before letting go (measured ~135ms). Gives SpringBoard a stationary target
+    // to commit the drop to, which is where reordering placement was slipping.
+    postMouse(.leftMouseDragged, b, pressure: 1.0)
+    Thread.sleep(forTimeInterval: Tune.iconDragLandingSettle)
     postMouse(.leftMouseUp, b, pressure: 0.0)
 }
 

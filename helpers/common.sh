@@ -374,17 +374,31 @@ function postM(type, x, y, press) {
     \$.CGEventPost(\$.kCGHIDEventTap, e);
     px = x; py = y;
 }
+// Median displacement-vs-time curve from 7 recorded HUMAN icon drags: gentle
+// start, ~2.3x velocity burst near 30-40%, long tapering landing. Kept in sync
+// with humanDragCurve in helpers/input-src/gestures.swift.
+const HUMAN_CURVE = [0.0, 0.031, 0.072, 0.108, 0.163, 0.22, 0.326, 0.441, 0.558, 0.64,
+    0.683, 0.756, 0.801, 0.831, 0.889, 0.931, 0.983, 0.985, 0.994, 1.0, 1.0];
+function curveAt(t) {
+    const c = Math.max(0, Math.min(1, t));
+    const x = c * (HUMAN_CURVE.length - 1);
+    const i = Math.min(HUMAN_CURVE.length - 2, Math.floor(x));
+    return HUMAN_CURVE[i] + (HUMAN_CURVE[i + 1] - HUMAN_CURVE[i]) * (x - i);
+}
 function seg(sx, sy, ex, ey) {
     const dx = ex - sx, dy = ey - sy;
     const dist = Math.max(1, Math.hypot(dx, dy));
     const n = Math.round(Math.max(300, dist / ${ICON_DRAG_SPEED}) / 8);
+    // Humans arc, not straight-line (measured 3.3px mean deviation, one bow).
+    const bowSide = (Math.round(sx + sy) % 2 === 0) ? 1 : -1;
+    const bowAmp = Math.min(5, dist * 0.03) * bowSide;
     for (let i = 1; i <= n; i++) {
         \$.NSThread.sleepForTimeInterval(0.008);
         ts += 8000000;
         const t = i / n;
-        const f = t * t * (3 - 2 * t);
-        const jitter = Math.sin(t * Math.PI * 2.3) * 1.2 + (((i * 0.37) % 1) - 0.5) * 0.6;
-        postM(\$.kCGEventLeftMouseDragged, sx + dx * f + (-dy / dist) * jitter, sy + dy * f + (dx / dist) * jitter, 1.0);
+        const f = curveAt(t);
+        const off = Math.sin(t * Math.PI) * bowAmp + (((i * 0.37) % 1) - 0.5) * 0.6;
+        postM(\$.kCGEventLeftMouseDragged, sx + dx * f + (-dy / dist) * off, sy + dy * f + (dx / dist) * off, 1.0);
     }
 }
 function hov(x, y, sec) {
@@ -410,6 +424,11 @@ if (hasVia) {
 }
 postM(\$.kCGEventLeftMouseDragged, x2, y2, 1.0);
 hov(x2, y2, ${hover_ms} / 1000);
+// Land still on the exact drop point before releasing (measured ~135ms human
+// pause): gives SpringBoard a stationary target to commit the drop to.
+postM(\$.kCGEventLeftMouseDragged, x2, y2, 1.0);
+\$.NSThread.sleepForTimeInterval(0.13);
+ts += 130000000;
 postM(\$.kCGEventLeftMouseUp, x2, y2, 0);
 }
 EOF
