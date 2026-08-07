@@ -44,8 +44,8 @@ private struct SuggestionChip: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(hovering ? Theme.accent.opacity(0.22) : Theme.accentSoft)
-                    .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.25), lineWidth: 0.5))
+                    .fill(hovering ? Theme.accent.opacity(0.28) : Theme.accent.opacity(0.18))
+                    .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.3), lineWidth: 0.5))
             )
             .foregroundStyle(Theme.accent)
         }

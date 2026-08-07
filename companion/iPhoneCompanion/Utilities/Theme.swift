@@ -18,11 +18,16 @@ enum Theme {
 
     // MARK: - Surfaces and lines
 
-    /// Tint laid over the window vibrancy so content stays legible on any wallpaper.
-    static let surfaceTint = dynamicColor(light: 0xFFFFFF, dark: 0x1C1C22, alpha: 0.55)
-    static let raised = dynamicColor(light: 0xFFFFFF, dark: 0x2A2A32, alpha: 0.65)
+    /// Dense tint over the window vibrancy: legible on ANY wallpaper. A thin tint
+    /// let the desktop bleed through and killed contrast, which read as "window
+    /// alpha set to 0.6" rather than designed glass. This is the biggest single
+    /// lever on looking finished.
+    static let surfaceTint = dynamicColor(light: 0xF4F4F6, dark: 0x1C1C20, alpha: 0.88)
+    static let raised = dynamicColor(light: 0xFFFFFF, dark: 0x2C2C34, alpha: 0.92)
     static let hairline = dynamicColor(light: 0x000000, dark: 0xFFFFFF, alpha: 0.10)
-    static let bezel = dynamicColor(light: 0x000000, dark: 0xFFFFFF, alpha: 0.16)
+    static let bezel = dynamicColor(light: 0x000000, dark: 0xFFFFFF, alpha: 0.14)
+    /// Faint top inner highlight, the lit-glass edge.
+    static let topSheen = dynamicColor(light: 0xFFFFFF, dark: 0xFFFFFF, alpha: 0.06)
 
     // MARK: - Text
 

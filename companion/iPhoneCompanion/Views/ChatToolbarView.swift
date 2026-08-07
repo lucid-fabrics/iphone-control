@@ -34,18 +34,8 @@ struct ChatToolbarView: View {
                 Spacer()
                 Color.clear.frame(width: 50)   // balance the back button width
             } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-                        .fill(Theme.accentGradient)
-                        .frame(width: 22, height: 22)
-                    Image(systemName: "iphone")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Theme.onAccent)
-                }
-
-                Text("iPhone Companion")
-                    .font(Theme.Font.title)
-
+                // No title chrome (Raycast-style): the top is a clean drag region
+                // with only the essential controls, right-aligned.
                 Spacer()
 
                 HStack(spacing: 2) {

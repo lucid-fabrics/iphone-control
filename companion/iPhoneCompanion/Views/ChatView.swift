@@ -40,6 +40,12 @@ struct ChatView: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.window, style: .continuous))
+        .overlay(alignment: .top) {
+            // Lit-glass top edge: a faint highlight fading down a few points.
+            LinearGradient(colors: [Theme.topSheen, .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 40)
+                .allowsHitTesting(false)
+        }
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.window, style: .continuous)
                 .strokeBorder(Theme.bezel, lineWidth: 1)
