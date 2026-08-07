@@ -50,7 +50,9 @@ private func ocrLines(_ img: CGImage) -> [String] {
     guard (try? handler.perform([ocrRequest])) != nil, let results = ocrRequest.results else { return [] }
     var out: [String] = []
     for obs in results {
-        guard let cand = obs.topCandidates(1).first else { continue }
+        // Confidence gate, matching ocr-image.swift: phone-UI scores are bimodal
+        // (legit text 1.0, garbled clipped glyphs ~0.5), so <0.6 is junk.
+        guard let cand = obs.topCandidates(1).first, cand.confidence >= 0.6 else { continue }
         let box = obs.boundingBox
         let px = Int(box.origin.x * Double(img.width))
         let py = Int((1.0 - box.origin.y - box.height) * Double(img.height))

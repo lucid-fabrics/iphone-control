@@ -78,6 +78,9 @@ case "$cmd" in
     tap-text)
         "$SCRIPT_DIR/tap-text.sh" "$@"
         ;;
+    tap-verify)
+        "$SCRIPT_DIR/tap-verify.sh" "$@"
+        ;;
     press|long-press)
         [[ $# -ge 2 ]] || { echo "Usage: iphone-control.sh press <x> <y> [hold_ms]" >&2; exit 1; }
         ENGINE=$(input_engine "$SCRIPT_DIR/helpers") || exit 1
@@ -179,6 +182,7 @@ case "$cmd" in
         echo "  screenshot [output_path]          Capture iPhone screen"
         echo "  tap <x> <y>                       Tap at coordinates"
         echo "  tap-text <text> [--index N]       OCR the screen, tap matching text"
+        echo "  tap-verify <x> <y> [--expect t]   Tap, confirm it worked, retry once"
         echo "  press <x> <y> [hold_ms]           Long press (context menu, edit mode)"
         echo "  double-tap <x> <y>                Double tap (zoom toggle, word select)"
         echo "  read [--grep p] [--at x y] [--json]  Read on-screen text + coordinates"

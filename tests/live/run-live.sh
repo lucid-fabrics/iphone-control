@@ -178,6 +178,16 @@ t_double_tap() {
     screens_match "$TMP/dt-before.png" "$TMP/dt-after.png" || { echo "screen changed"; return 1; }
 }
 
+t_tap_verify_negative() {
+    # A dead-space tap changes nothing; tap-verify must SAY so rather than
+    # claiming success. (The positive case is exercised implicitly by every
+    # tap-based test; the negative is the one that catches a lying verifier.)
+    if "$ROOT/tap-verify.sh" 180 620 --retries 0 > /dev/null 2>&1; then
+        echo "verified a no-op tap as a screen change"; return 1
+    fi
+    return 0
+}
+
 t_key_event() {
     # Escape on the home screen is a no-op, but proves key delivery + restore.
     local f0 f1
@@ -268,6 +278,7 @@ for (( ITER = 1; ITER <= ITERATIONS; ITER++ )); do
     run_test native-bounds   t_native_bounds
     run_test screenshot-dims t_screenshot_dims
     run_test tap-noop        t_tap_noop
+    run_test tap-verify-neg  t_tap_verify_negative
     run_test key-event       t_key_event
     run_test double-tap      t_double_tap
     run_test ocr-find        t_ocr_find
