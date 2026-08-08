@@ -9,7 +9,8 @@ class OpenRouterService: ToolCapableAIService {
         self.model = model
     }
 
-    func send(messages: [APIMessage], tools: [[String: Any]], systemPrompt: String) async throws -> AsyncStream<StreamEvent> {
+    func send(messages: [APIMessage], tools: [[String: Any]],
+              systemPrompt: String) async throws -> AsyncStream<StreamEvent> {
         let body = buildRequestBody(messages: messages, tools: tools, systemPrompt: systemPrompt)
 
         guard let url = URL(string: Constants.openRouterAPIURL) else {
@@ -72,29 +73,43 @@ class OpenRouterService: ToolCapableAIService {
         }
     }
 
-    private func buildRequestBody(messages: [APIMessage], tools: [[String: Any]], systemPrompt: String) -> [String: Any] {
+    // Pre-existing single-pass marshalling of the whole message history into the
+    // OpenAI wire format; splitting the role branches would not make it clearer.
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    private func buildRequestBody(messages: [APIMessage], tools: [[String: Any]],
+                                  systemPrompt: String) -> [String: Any] {
         var openAIMessages: [[String: Any]] = [
-            ["role": "system", "content": systemPrompt],
+            ["role": "system", "content": systemPrompt]
         ]
 
         for msg in messages {
             if msg.role == "user" {
+                var toolResultImages: [[String: Any]] = []
                 let toolResults = msg.content.compactMap { block -> [String: Any]? in
                     if case .toolResult(let toolUseId, let content, _) = block {
                         var resultText = ""
-                        for c in content {
-                            if case .text(let t) = c { resultText += t }
-                        }
-                        for c in content {
-                            if case .image(let base64, _) = c {
-                                resultText += "\n[Screenshot attached as base64 image, \(base64.count / 1024)KB]"
+                        for sub in content {
+                            switch sub {
+                            case .text(let text):
+                                resultText += text
+                            case .image(let base64, let mediaType):
+                                // role:"tool" content is text-only in this format.
+                                // The old code claimed "[Screenshot attached]" while
+                                // attaching NOTHING, so the model drove blind. Ferry
+                                // images in a follow-up user message instead.
+                                toolResultImages.append([
+                                    "type": "image_url",
+                                    "image_url": ["url": "data:\(mediaType);base64,\(base64)"]
+                                ])
+                            default:
+                                break
                             }
                         }
                         if resultText.isEmpty { resultText = "Done" }
                         return [
                             "role": "tool",
                             "tool_call_id": toolUseId,
-                            "content": resultText,
+                            "content": resultText
                         ]
                     }
                     return nil
@@ -102,6 +117,13 @@ class OpenRouterService: ToolCapableAIService {
 
                 if !toolResults.isEmpty {
                     openAIMessages.append(contentsOf: toolResults)
+                    if !toolResultImages.isEmpty {
+                        var blocks: [[String: Any]] = [
+                            ["type": "text", "text": "Screenshot from the tool result above:"]
+                        ]
+                        blocks.append(contentsOf: toolResultImages)
+                        openAIMessages.append(["role": "user", "content": blocks])
+                    }
                 } else {
                     var contentParts: [[String: Any]] = []
                     for block in msg.content {
@@ -111,14 +133,14 @@ class OpenRouterService: ToolCapableAIService {
                         case .image(let base64, let mediaType):
                             contentParts.append([
                                 "type": "image_url",
-                                "image_url": ["url": "data:\(mediaType);base64,\(base64)"],
+                                "image_url": ["url": "data:\(mediaType);base64,\(base64)"]
                             ])
                         default:
                             break
                         }
                     }
-                    if contentParts.count == 1, case .text(let t) = msg.content.first {
-                        openAIMessages.append(["role": "user", "content": t])
+                    if contentParts.count == 1, case .text(let soleText) = msg.content.first {
+                        openAIMessages.append(["role": "user", "content": soleText])
                     } else if !contentParts.isEmpty {
                         openAIMessages.append(["role": "user", "content": contentParts])
                     }
@@ -140,8 +162,8 @@ class OpenRouterService: ToolCapableAIService {
                             "type": "function",
                             "function": [
                                 "name": name,
-                                "arguments": argsStr,
-                            ] as [String: Any],
+                                "arguments": argsStr
+                            ] as [String: Any]
                         ])
                     default:
                         break
@@ -169,8 +191,8 @@ class OpenRouterService: ToolCapableAIService {
                 "function": [
                     "name": name,
                     "description": description,
-                    "parameters": inputSchema,
-                ] as [String: Any],
+                    "parameters": inputSchema
+                ] as [String: Any]
             ]
         }
 
@@ -178,7 +200,7 @@ class OpenRouterService: ToolCapableAIService {
             "model": model,
             "max_tokens": Constants.maxTokens,
             "stream": true,
-            "messages": openAIMessages,
+            "messages": openAIMessages
         ]
 
         if !openAITools.isEmpty {

@@ -167,6 +167,7 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
             var textParts: [String] = []
             var toolCalls: [[String: Any]] = []
             var toolResults: [[String: Any]] = []
+            var toolResultImages: [[String: Any]] = []
 
             for block in msg.content {
                 switch block {
@@ -188,7 +189,20 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
                 case .toolResult(let toolUseId, let subContent, _):
                     var resultText = ""
                     for sub in subContent {
-                        if case .text(let piece) = sub { resultText += piece }
+                        switch sub {
+                        case .text(let piece):
+                            resultText += piece
+                        case .image(let base64, let mediaType):
+                            // role:"tool" content is text-only in the OpenAI format;
+                            // silently dropping these left the model driving BLIND.
+                            // Ferry screenshots in a follow-up user message instead.
+                            toolResultImages.append([
+                                "type": "image_url",
+                                "image_url": ["url": "data:\(mediaType);base64,\(base64)"]
+                            ])
+                        default:
+                            break
+                        }
                     }
                     toolResults.append([
                         "role": "tool",
@@ -202,8 +216,18 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
                 // Tool results become separate role:tool messages
                 result.append(contentsOf: toolResults)
 
+                // Screenshots from tool results ride in a user message right after
+                // (tool messages cannot carry images in this API format).
+                if !toolResultImages.isEmpty {
+                    var blocks: [[String: Any]] = [
+                        ["type": "text", "text": "Screenshot from the tool result above:"]
+                    ]
+                    blocks.append(contentsOf: toolResultImages)
+                    result.append(["role": "user", "content": blocks])
+                }
+
                 // Regular user text (if any)
-                if !textParts.isEmpty || toolResults.isEmpty {
+                if !textParts.isEmpty || (toolResults.isEmpty && toolResultImages.isEmpty) {
                     let content = buildUserContent(textParts: textParts, msg: msg)
                     result.append(["role": "user", "content": content])
                 }
