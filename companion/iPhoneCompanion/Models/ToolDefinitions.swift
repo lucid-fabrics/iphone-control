@@ -11,30 +11,30 @@ struct ToolDefinitions {
              properties: [:]),
 
         tool("tap",
-             description: "Tap at coordinates relative to the iPhone content area.",
+             description: "Tap the iPhone screen. Coordinates are a 0-1000 grid (x: 0=left, 1000=right; y: 0=top, 1000=bottom), NOT pixels.",
              properties: [
-                "x": prop("number", "X coordinate"),
-                "y": prop("number", "Y coordinate"),
+                "x": prop("number", "X on a 0-1000 grid (0=left edge, 1000=right edge)"),
+                "y": prop("number", "Y on a 0-1000 grid (0=top edge, 1000=bottom edge)")
              ],
              required: ["x", "y"]),
 
         tool("swipe",
-             description: "Swipe from (x1,y1) to (x2,y2) on the iPhone content area.",
+             description: "Swipe from (x1,y1) to (x2,y2). Coordinates are a 0-1000 grid (x: 0=left, 1000=right; y: 0=top, 1000=bottom), NOT pixels.",
              properties: [
-                "x1": prop("number", "Start X"),
-                "y1": prop("number", "Start Y"),
-                "x2": prop("number", "End X"),
-                "y2": prop("number", "End Y"),
-                "duration_ms": prop("number", "Swipe duration in ms (default 300)"),
+                "x1": prop("number", "Start X, 0-1000 (0=left, 1000=right)"),
+                "y1": prop("number", "Start Y, 0-1000 (0=top, 1000=bottom)"),
+                "x2": prop("number", "End X, 0-1000 (0=left, 1000=right)"),
+                "y2": prop("number", "End Y, 0-1000 (0=top, 1000=bottom)"),
+                "duration_ms": prop("number", "Swipe duration in ms (default 300)")
              ],
              required: ["x1", "y1", "x2", "y2"]),
 
         tool("type_text",
-             description: "Type text into the iPhone. Optionally tap a field first.",
+             description: "Type text into the iPhone. Optionally tap a field first (0-1000 grid coordinates).",
              properties: [
                 "text": prop("string", "Text to type"),
-                "x": prop("number", "X coordinate to tap before typing"),
-                "y": prop("number", "Y coordinate to tap before typing"),
+                "x": prop("number", "X of field to tap first, 0-1000 (0=left, 1000=right)"),
+                "y": prop("number", "Y of field to tap first, 0-1000 (0=top, 1000=bottom)")
              ],
              required: ["text"]),
 
@@ -42,7 +42,7 @@ struct ToolDefinitions {
              description: "Open an app on the iPhone by name. Uses registry (fast) with Spotlight fallback. Run scan_apps first to populate the registry.",
              properties: [
                 "name": prop("string", "App name to open (e.g. 'Settings', 'Safari')"),
-                "method": propEnum("string", "Launch method", ["auto", "spotlight"]),
+                "method": propEnum("string", "Launch method", ["auto", "spotlight"])
              ],
              required: ["name"]),
 
@@ -61,12 +61,12 @@ struct ToolDefinitions {
         tool("scan_apps",
              description: "Scan all iPhone home screen pages via OCR and save results to persistent registry. Returns full registry JSON.",
              properties: [
-                "max_pages": prop("number", "Max home screen pages to scan (default 10)"),
+                "max_pages": prop("number", "Max home screen pages to scan (default 10)")
              ]),
 
         tool("list_apps",
              description: "List all apps from the cached registry. Returns the saved registry data without rescanning.",
-             properties: [:]),
+             properties: [:])
     ]
 
     private static func prop(_ type: String, _ description: String) -> [String: Any] {
@@ -80,7 +80,7 @@ struct ToolDefinitions {
     private static func tool(_ name: String, description: String, properties: [String: Any], required: [String] = []) -> [String: Any] {
         var schema: [String: Any] = [
             "type": "object",
-            "properties": properties,
+            "properties": properties
         ]
         if !required.isEmpty {
             schema["required"] = required
@@ -88,7 +88,7 @@ struct ToolDefinitions {
         return [
             "name": name,
             "description": description,
-            "input_schema": schema,
+            "input_schema": schema
         ]
     }
 }

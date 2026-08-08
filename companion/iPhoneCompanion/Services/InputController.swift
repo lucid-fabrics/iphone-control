@@ -40,14 +40,19 @@ actor InputController: InputControlling {
 
     // MARK: - Tap
 
+    /// Convert a 0-1000 normalized coordinate to a content-pixel offset, clamped to
+    /// [0, limit]. The model works in a resolution-independent 0-1000 space; anything
+    /// outside it (a mild over/undershoot) clamps to the edge rather than erroring.
+    private static func contentPixel(_ normalized: Int, limit: Int) -> Int {
+        min(max(normalized * limit / 1000, 0), limit)
+    }
+
     func tap(x: Int, y: Int) async throws -> String {
         let bounds = try await getContentBounds()
-        guard x >= 0, x <= bounds.contentWidth, y >= 0, y <= bounds.contentHeight else {
-            throw InputError.outOfBounds(x, y, bounds.contentWidth, bounds.contentHeight)
-        }
-
-        let absX = bounds.contentX + x
-        let absY = bounds.contentY + y
+        // x/y are normalized 0-1000 (resolution-independent). Map to content pixels
+        // and clamp, so a mild over/undershoot lands at the edge instead of erroring.
+        let absX = bounds.contentX + Self.contentPixel(x, limit: bounds.contentWidth)
+        let absY = bounds.contentY + Self.contentPixel(y, limit: bounds.contentHeight)
 
         let session = await beginSession()
         let pt = CGPoint(x: absX, y: absY)
@@ -69,16 +74,11 @@ actor InputController: InputControlling {
 
     func swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int = 300) async throws -> String {
         let bounds = try await getContentBounds()
-        for (cx, cy) in [(x1, y1), (x2, y2)] {
-            guard cx >= 0, cx <= bounds.contentWidth, cy >= 0, cy <= bounds.contentHeight else {
-                throw InputError.outOfBounds(cx, cy, bounds.contentWidth, bounds.contentHeight)
-            }
-        }
-
-        let absX1 = bounds.contentX + x1
-        let absY1 = bounds.contentY + y1
-        let absX2 = bounds.contentX + x2
-        let absY2 = bounds.contentY + y2
+        // Normalized 0-1000 endpoints -> content pixels (clamped).
+        let absX1 = bounds.contentX + Self.contentPixel(x1, limit: bounds.contentWidth)
+        let absY1 = bounds.contentY + Self.contentPixel(y1, limit: bounds.contentHeight)
+        let absX2 = bounds.contentX + Self.contentPixel(x2, limit: bounds.contentWidth)
+        let absY2 = bounds.contentY + Self.contentPixel(y2, limit: bounds.contentHeight)
 
         let session = await beginSession()
         let startPt = CGPoint(x: absX1, y: absY1)
