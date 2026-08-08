@@ -274,19 +274,27 @@ actor ToolExecutor {
         // control: 47x89 was typed as 88750 because columns were assumed at
         // 95/190/288/385 when they really sat at 147/381/614/842.
         let snap = await snapToElement(normX: rawX, normY: rawY)
-        let tapX = snap?.x ?? rawX
-        let tapY = snap?.y ?? rawY
+        let tapX = snap?.posX ?? rawX
+        let tapY = snap?.posY ?? rawY
 
         // Snapshot the screen the model was aiming at, marked with where the tap
         // will land, so a miss can be SEEN instead of inferred.
         let marked = await debugMark(normX: tapX, normY: tapY, note: "tap")
         _ = try await inputController.tap(x: tapX, y: tapY)
 
-        let snapNote = snap.map {
-            " Snapped from (\(rawX), \(rawY)) onto \"\($0.label)\" at (\($0.x), \($0.y)):"
-                + " your coordinates were off by \(abs(rawX - $0.x)),\(abs(rawY - $0.y))."
-                + " Use read to get exact positions instead of estimating."
-        } ?? ""
+        let snapNote: String
+        if let snap {
+            snapNote = " Nudged onto \"\(snap.label)\" at (\(snap.posX), \(snap.posY))."
+        } else if let near = await nearestElement(normX: rawX, normY: rawY), near.distance <= 150 {
+            // Advise, never move: the target may be an unlabeled control (a back
+            // chevron, a search field) that simply sits near some text.
+            snapNote = " Nearest labelled element is \"\(near.target.label)\" at"
+                + " (\(near.target.posX), \(near.target.posY)). If you meant that, use those"
+                + " exact coordinates from read; if you meant an unlabelled control,"
+                + " check the screenshot before retrying."
+        } else {
+            snapNote = ""
+        }
         if debugMode, let marked {
             let verdict = lastStaleVerdict.map { "\n\n" + $0 } ?? ""
             return ToolResult(
@@ -296,16 +304,19 @@ actor ToolExecutor {
         return .text("Tapped at (\(tapX), \(tapY)).\(snapNote) Screenshot to verify.")
     }
 
-    /// Nearest OCR'd element to a requested point, if it is within roughly one
-    /// button (12% of the screen diagonal). Returns nil when the model is tapping
-    /// empty space or an unlabeled control, so free-form taps still work.
+    // Half a small control on the 0-1000 grid: corrects a jitter-level miss but
+    // can never reach a neighbouring element.
+    static let snapRadius = 45.0
+
     struct SnapTarget {
-        let x: Int
-        let y: Int
+        let posX: Int
+        let posY: Int
         let label: String
     }
 
-    private func snapToElement(normX: Int, normY: Int) async -> SnapTarget? {
+    /// Nearest OCR'd element to a point, with its distance on the 0-1000 grid.
+    private func nearestElement(normX: Int, normY: Int) async
+        -> (target: SnapTarget, distance: Double)? {
         guard let bounds = try? await inputController.getContentBounds(),
               bounds.contentWidth > 0, bounds.contentHeight > 0,
               let result = try? await scriptRunner.run(
@@ -328,14 +339,22 @@ actor ToolExecutor {
             if distance < bestDistance {
                 bestDistance = distance
                 best = SnapTarget(
-                    x: gridX, y: gridY,
+                    posX: gridX, posY: gridY,
                     label: parts.count > 1
                         ? String(parts[1]).trimmingCharacters(in: .whitespaces) : "")
             }
         }
-        // Only snap a genuine near-miss; a far-away match means a different intent.
-        guard bestDistance <= 120, bestDistance > 0 else { return nil }
-        return best
+        guard let best, bestDistance > 0 else { return nil }
+        return (best, bestDistance)
+    }
+
+    /// Snap ONLY a tiny error, well inside one control. A generous radius hijacked
+    /// taps aimed at UNLABELED controls (a back chevron dragged onto the status-bar
+    /// clock, a search field onto a nearby app name), far worse than the original miss.
+    private func snapToElement(normX: Int, normY: Int) async -> SnapTarget? {
+        guard let near = await nearestElement(normX: normX, normY: normY),
+              near.distance <= Self.snapRadius else { return nil }
+        return near.target
     }
 
     /// Write /tmp/iphone-companion-taps/<ts>-<note>.png: the screen as it was when
