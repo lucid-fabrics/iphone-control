@@ -8,7 +8,8 @@ import Carbon.HIToolbox
 // swiftlint:disable file_length
 // Geometry API: x, y, x1..y2, dx, dy are the standard names for coordinates and
 // deltas here; longer identifiers would make the math harder to read.
-// swiftlint:disable type_body_length identifier_name
+// swiftlint:disable type_body_length
+// swiftlint:disable identifier_name superfluous_disable_command
 
 /// Protocol for input control operations (DIP support).
 protocol InputControlling: Sendable {
@@ -322,30 +323,46 @@ actor InputController: InputControlling {
     }()
 
     private func postKeystrokes(_ text: String) {
-        let src = CGEventSource(stateID: .hidSystemState)
         for char in text {
             guard let stroke = Self.keyMap[char] else {
                 NSLog("[Companion] typeText: no key for %@ on active layout, skipping", String(char))
                 continue
             }
-            let keyDown = CGEvent(keyboardEventSource: src, virtualKey: stroke.code, keyDown: true)
-            let keyUp = CGEvent(keyboardEventSource: src, virtualKey: stroke.code, keyDown: false)
-            keyDown?.flags = stroke.flags
-            keyUp?.flags = stroke.flags
-            keyDown?.post(tap: .cghidEventTap)
-            keyUp?.post(tap: .cghidEventTap)
-            Thread.sleep(forTimeInterval: Constants.keystrokeDelay)
+            // Through the modifier-wrapping path: shifted characters (capitals,
+            // symbols) are dropped by Mirroring without physical Shift events.
+            postKeyCode(stroke.code, flags: stroke.flags)
         }
     }
 
+    // Mirroring silently drops a modified keystroke unless each modifier arrives
+    // as its own PHYSICAL key event around the letter, like real hardware
+    // (Cmd down, V, V up, Cmd up). Verified live: Cmd+A/Cmd+V landed as bare
+    // 'a'/'v' until wrapped. Same fix as the CLI's jxa_key_body/postKey.
+    private static let modifierKeys: [(CGEventFlags, CGKeyCode)] = [
+        (.maskCommand, 55), (.maskShift, 56), (.maskAlternate, 58), (.maskControl, 59)
+    ]
+
     private func postKeyCode(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {
         let src = CGEventSource(stateID: .hidSystemState)
+        let mods = Self.modifierKeys.filter { flags.contains($0.0) }
+        for (_, modCode) in mods {
+            let modDown = CGEvent(keyboardEventSource: src, virtualKey: modCode, keyDown: true)
+            modDown?.flags = flags
+            modDown?.post(tap: .cghidEventTap)
+            Thread.sleep(forTimeInterval: Constants.keystrokeDelay)
+        }
         let keyDown = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: true)
         let keyUp = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
         keyDown?.flags = flags
         keyUp?.flags = flags
         keyDown?.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: Constants.keystrokeDelay)
         keyUp?.post(tap: .cghidEventTap)
+        for (_, modCode) in mods.reversed() {
+            let modUp = CGEvent(keyboardEventSource: src, virtualKey: modCode, keyDown: false)
+            modUp?.post(tap: .cghidEventTap)
+            Thread.sleep(forTimeInterval: Constants.keystrokeDelay)
+        }
     }
 
     /// Select-all + delete: clears a text field regardless of its current content.
@@ -499,4 +516,5 @@ private func buildLayoutKeyMap() -> [Character: KeyStroke] {
     return map
 }
 
-// swiftlint:enable type_body_length identifier_name
+// swiftlint:enable type_body_length
+// swiftlint:enable identifier_name superfluous_disable_command

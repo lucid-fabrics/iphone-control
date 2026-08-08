@@ -1,4 +1,5 @@
 import Foundation
+// swiftlint:disable file_length
 import CoreGraphics
 import AppKit
 
@@ -22,7 +23,7 @@ struct ToolResult {
 
 // One method per tool keeps the dispatch flat and readable; splitting the actor
 // would scatter closely-related device actions across files.
-// swiftlint:disable type_body_length file_length
+// swiftlint:disable type_body_length
 actor ToolExecutor {
     let scriptRunner: ScriptRunning
     let inputController: InputControlling
@@ -39,6 +40,7 @@ actor ToolExecutor {
     }
 
     // Flat tool-name dispatch; one case per tool is clearer than any indirection.
+    // swiftlint:disable:next cyclomatic_complexity
     func execute(toolName: String, input: [String: Any]) async -> ToolResult {
         do {
             switch toolName {
@@ -56,6 +58,22 @@ actor ToolExecutor {
                 return try await executeTypeText(input: input)
             case "press_key":
                 return try await executePressKey(input: input)
+            case "scroll":
+                return try await executeScroll(input: input)
+            case "read":
+                return try await executeRead(input: input)
+            case "wait":
+                return try await executeWait(input: input)
+            case "long_press":
+                return try await executeLongPress(input: input)
+            case "back":
+                return try await executeBack()
+            case "scroll_to":
+                return try await executeScrollTo(input: input)
+            case "clear_text":
+                return try await executeClearText()
+            case "double_tap":
+                return try await executeDoubleTap(input: input)
             case "open_app":
                 return try await executeOpenApp(input: input)
             case "home":
@@ -296,6 +314,122 @@ actor ToolExecutor {
         return .text("\(result). Screenshot to verify.")
     }
 
+    // MARK: - Skill-surface tools (thin wrappers over the live-tested CLI scripts)
+
+    /// 0-1000 normalized -> content points, the coordinate space the scripts use.
+    private func toPoints(_ xNorm: Int, _ yNorm: Int) async throws -> (x: Int, y: Int) {
+        let bounds = try await inputController.getContentBounds()
+        return (min(max(xNorm * bounds.contentWidth / 1000, 0), bounds.contentWidth),
+                min(max(yNorm * bounds.contentHeight / 1000, 0), bounds.contentHeight))
+    }
+
+    private func executeScroll(input: [String: Any]) async throws -> ToolResult {
+        let direction = (input["direction"] as? String) ?? "down"
+        let amountNorm = intValue(input["amount"]) ?? 500
+        let bounds = try await inputController.getContentBounds()
+        var deltaY = max(1, amountNorm * bounds.contentHeight / 1000)
+        if direction == "up" { deltaY = -deltaY }
+        _ = try await scriptRunner.run(
+            script: "scroll.sh", args: [String(deltaY)], timeout: Constants.defaultScriptTimeout)
+        return .text("Scrolled \(direction). Screenshot or read to see the new content.")
+    }
+
+    private func executeRead(input: [String: Any]) async throws -> ToolResult {
+        var args: [String] = []
+        if let filter = input["filter"] as? String, !filter.isEmpty {
+            args += ["--grep", filter]
+        }
+        let result = try await scriptRunner.run(
+            script: "read.sh", args: args, timeout: Constants.defaultScriptTimeout)
+        let bounds = try await inputController.getContentBounds()
+        let rescaled = rescaleReadOutput(
+            result.stdout, width: bounds.contentWidth, height: bounds.contentHeight)
+        return .text(rescaled.isEmpty
+            ? "No matching text on screen."
+            : "On-screen text as x,y (0-1000 grid, feed straight into tap):\n" + rescaled)
+    }
+
+    /// read.sh prints "x,y  text" in content points; convert coordinates to the
+    /// 0-1000 grid so the model can pass them directly to tap.
+    private func rescaleReadOutput(_ output: String, width: Int, height: Int) -> String {
+        guard width > 0, height > 0 else { return output }
+        return output.split(separator: "\n", omittingEmptySubsequences: true).map { line -> String in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let parts = trimmed.split(separator: " ", maxSplits: 1,
+                                      omittingEmptySubsequences: true)
+            guard let coords = parts.first,
+                  let comma = coords.firstIndex(of: ","),
+                  let xVal = Int(coords[..<comma]),
+                  let yVal = Int(coords[coords.index(after: comma)...])
+            else { return String(line) }
+            let label = parts.count > 1 ? String(parts[1]) : ""
+            return "\(xVal * 1000 / width),\(yVal * 1000 / height)  \(label)"
+        }.joined(separator: "\n")
+    }
+
+    private func executeWait(input: [String: Any]) async throws -> ToolResult {
+        let condition = (input["condition"] as? String) ?? "still"
+        var args = [condition]
+        if condition != "still" {
+            guard let text = input["text"] as? String, !text.isEmpty else {
+                return .error("wait with condition '\(condition)' requires the text parameter")
+            }
+            args.append(text)
+        }
+        let result = try await scriptRunner.run(
+            script: "wait.sh", args: args, timeout: Constants.scanTimeout)
+        return .text(result.stdout.isEmpty ? "Wait finished." : result.stdout)
+    }
+
+    private func executeLongPress(input: [String: Any]) async throws -> ToolResult {
+        guard let xNorm = intValue(input["x"]), let yNorm = intValue(input["y"]) else {
+            return .error("long_press requires x and y (0-1000 grid)")
+        }
+        let duration = intValue(input["duration_ms"]) ?? 700
+        let pts = try await toPoints(xNorm, yNorm)
+        _ = try await scriptRunner.run(
+            script: "iphone-control.sh",
+            args: ["press", String(pts.x), String(pts.y), String(duration)],
+            timeout: Constants.defaultScriptTimeout)
+        return .text("Long-pressed at (\(xNorm), \(yNorm)). Screenshot to see the menu.")
+    }
+
+    private func executeBack() async throws -> ToolResult {
+        let result = try await scriptRunner.run(
+            script: "back.sh", args: [], timeout: Constants.defaultScriptTimeout)
+        return .text(result.stdout.isEmpty ? "Back." : result.stdout)
+    }
+
+    private func executeScrollTo(input: [String: Any]) async throws -> ToolResult {
+        guard let text = input["text"] as? String, !text.isEmpty else {
+            return .error("scroll_to requires the text to scroll to")
+        }
+        var args = [text]
+        if (input["tap"] as? Bool) == true { args.append("--tap") }
+        let result = try await scriptRunner.run(
+            script: "scroll-to.sh", args: args, timeout: Constants.scanTimeout)
+        return .text(result.stdout.isEmpty ? "Done." : result.stdout)
+    }
+
+    private func executeClearText() async throws -> ToolResult {
+        let result = try await scriptRunner.run(
+            script: "iphone-control.sh", args: ["clear-text"],
+            timeout: Constants.defaultScriptTimeout)
+        return .text(result.stdout.isEmpty ? "Cleared the focused field." : result.stdout)
+    }
+
+    private func executeDoubleTap(input: [String: Any]) async throws -> ToolResult {
+        guard let xNorm = intValue(input["x"]), let yNorm = intValue(input["y"]) else {
+            return .error("double_tap requires x and y (0-1000 grid)")
+        }
+        let pts = try await toPoints(xNorm, yNorm)
+        _ = try await scriptRunner.run(
+            script: "iphone-control.sh",
+            args: ["double-tap", String(pts.x), String(pts.y)],
+            timeout: Constants.defaultScriptTimeout)
+        return .text("Double-tapped at (\(xNorm), \(yNorm)). Screenshot to verify.")
+    }
+
     private func executeOpenApp(input: [String: Any]) async throws -> ToolResult {
         guard let name = input["name"] as? String else {
             return .error("open_app requires name parameter")
@@ -358,7 +492,7 @@ actor ToolExecutor {
         return nil
     }
 }
-// swiftlint:enable type_body_length file_length
+// swiftlint:enable type_body_length
 
 /// Foreground or background the iPhone Mirroring app (backgrounding = activate
 /// Finder, harmless and always running). Used by the black-frame retry ladder.

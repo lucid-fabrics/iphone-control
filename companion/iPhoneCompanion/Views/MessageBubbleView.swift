@@ -171,11 +171,21 @@ struct MessageBubbleView: View {
         )
     }
 
+    // Flat name->icon lookup; one case per tool.
+    // swiftlint:disable:next cyclomatic_complexity
     private func toolIcon(_ name: String) -> String {
         switch name {
         case "screenshot": return "camera"
         case "tap": return "hand.tap"
         case "tap_text": return "text.viewfinder"
+        case "scroll", "scroll_to": return "arrow.up.arrow.down"
+        case "read": return "doc.text.magnifyingglass"
+        case "wait": return "hourglass"
+        case "long_press": return "hand.tap.fill"
+        case "back": return "chevron.backward"
+        case "clear_text": return "xmark.circle"
+        case "double_tap": return "hand.tap"
+        case "press_key": return "keyboard"
         case "swipe": return "hand.draw"
         case "type_text": return "keyboard"
         case "open_app": return "app"
@@ -189,11 +199,21 @@ struct MessageBubbleView: View {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func toolDisplayName(_ name: String) -> String {
         switch name {
         case "screenshot": return "Capturing screen..."
         case "tap": return "Tapping..."
         case "tap_text": return "Tapping text..."
+        case "scroll": return "Scrolling..."
+        case "scroll_to": return "Scrolling to find..."
+        case "read": return "Reading screen..."
+        case "wait": return "Waiting..."
+        case "long_press": return "Long-pressing..."
+        case "back": return "Going back..."
+        case "clear_text": return "Clearing field..."
+        case "double_tap": return "Double-tapping..."
+        case "press_key": return "Pressing key..."
         case "swipe": return "Swiping..."
         case "type_text": return "Typing text..."
         case "open_app": return "Opening app..."

@@ -131,6 +131,18 @@ enum Constants {
         its button ("Not Now"/"Skip"/"Continue"). To search an app store, tap_text
         "Search", then type_text the query.
 
+        ## READ, SCROLL, WAIT (use these - they remove guesswork):
+        - read lists every visible text WITH its 0-1000 tap coordinates. When tap_text
+          misses or a target is unlabeled, read first and tap the listed coordinates.
+        - scroll (native wheel) is THE way to move through lists and pages. Drag
+          swipes do NOT scroll lists. scroll_to "Text" finds a row in a long list.
+        - wait (condition=text/gone/still) replaces re-screenshotting: wait for a
+          label to appear, a spinner to vanish, or animation to settle.
+        - long_press opens context menus (dismiss by tapping empty space, not Escape).
+          clear_text empties the focused field before retyping. back goes back a screen.
+        - Control Center, Notification Center, Siri and pinch-zoom are UNREACHABLE
+          through mirroring. Never attempt them, with any gesture or timing.
+
         ## COORDINATES (for the coordinate tap only):
         All tap/swipe coordinates use a 0-1000 grid over the iPhone screen, NOT pixels:
         x=0 is the left edge, x=1000 the right edge; y=0 the top, y=1000 the bottom.

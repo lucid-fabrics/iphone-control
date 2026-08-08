@@ -59,6 +59,61 @@ struct ToolDefinitions {
              ],
              required: ["key"]),
 
+        tool("scroll",
+             description: "Scroll the current list/page vertically with native wheel events. This is THE way to move through content - drag swipes do NOT scroll lists.",
+             properties: [
+                "direction": propEnum("string", "Scroll direction", ["down", "up"]),
+                "amount": prop("number", "How far, 0-1000 (fraction of screen height; default 500 = half screen)")
+             ],
+             required: ["direction"]),
+
+        tool("read",
+             description: "OCR the screen: returns every visible text with its tap coordinates on the 0-1000 grid. The most precise way to locate a target - feed the coordinates straight into tap. Prefer this over guessing positions from the screenshot.",
+             properties: [
+                "filter": prop("string", "Optional regex to filter lines, e.g. 'Wi-?Fi'")
+             ]),
+
+        tool("wait",
+             description: "Wait for the screen instead of taking repeated screenshots: until a text appears (condition=text), disappears (condition=gone), or animations settle (condition=still).",
+             properties: [
+                "condition": propEnum("string", "What to wait for", ["text", "gone", "still"]),
+                "text": prop("string", "The text to wait for (required for text/gone)")
+             ],
+             required: ["condition"]),
+
+        tool("long_press",
+             description: "Touch and hold at a point (0-1000 grid) to open a context menu / quick actions. WARNING: long-pressing home-screen icons can enter edit (jiggle) mode - only use when a context menu is the goal. Dismiss menus by tapping empty space, never Escape.",
+             properties: [
+                "x": prop("number", "X on the 0-1000 grid"),
+                "y": prop("number", "Y on the 0-1000 grid"),
+                "duration_ms": prop("number", "Hold duration in ms (default 700)")
+             ],
+             required: ["x", "y"]),
+
+        tool("back",
+             description: "Navigate back one screen in the current app (taps the back control).",
+             properties: [:]),
+
+        tool("scroll_to",
+             description: "Scroll until the given text is visible, optionally tapping it. Ideal for finding a row in a long list, e.g. a Settings entry.",
+             properties: [
+                "text": prop("string", "The text to scroll to"),
+                "tap": prop("boolean", "Also tap it once visible (default false)")
+             ],
+             required: ["text"]),
+
+        tool("clear_text",
+             description: "Empty the focused text field (select all + delete). Use before retyping into a field that already has content.",
+             properties: [:]),
+
+        tool("double_tap",
+             description: "Double-tap at a point (0-1000 grid). Mainly for zoom toggles.",
+             properties: [
+                "x": prop("number", "X on the 0-1000 grid"),
+                "y": prop("number", "Y on the 0-1000 grid")
+             ],
+             required: ["x", "y"]),
+
         tool("open_app",
              description: "Open an app on the iPhone by name. Uses registry (fast) with Spotlight fallback. Run scan_apps first to populate the registry.",
              properties: [
