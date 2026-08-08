@@ -96,7 +96,8 @@ enum WindowCapture {
     /// real landing spot can be inspected on disk instead of inferred from what the
     /// model claims. Files land in /tmp/iphone-companion-taps/.
     @discardableResult
-    static func writeTapMarker(normX: Int, normY: Int, png: Data, note: String) -> Data? {
+    static func writeTapMarker(normX: Int, normY: Int, png: Data, note: String,
+                               sidecar: String? = nil) -> Data? {
         guard let source = CGImageSourceCreateWithData(png as CFData, nil),
               let img = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
         let width = img.width, height = img.height
@@ -128,6 +129,10 @@ enum WindowCapture {
         let safeNote = note.replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: " ", with: "_").prefix(40)
         try? out.write(to: URL(fileURLWithPath: "\(dir)/\(stamp)-\(safeNote).png"))
+        if let sidecar, !sidecar.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            try? sidecar.write(toFile: "\(dir)/\(stamp)-\(safeNote).txt",
+                               atomically: true, encoding: .utf8)
+        }
         return out
     }
 

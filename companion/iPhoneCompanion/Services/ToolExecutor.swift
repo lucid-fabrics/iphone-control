@@ -34,6 +34,13 @@ actor ToolExecutor {
 
     func setDebugMode(_ enabled: Bool) { debugMode = enabled }
 
+    /// The last screen actually handed to the model. A tap aimed from a view that
+    /// no longer matches the live screen is STALE - the model's coordinates were
+    /// right for what it saw, wrong for what is there now. That distinction is the
+    /// difference between "the model can't aim" and "the model was shown old data".
+    private var lastModelScreen: [UInt8]?
+    private var lastStaleVerdict: String?
+
     init(scriptsPath: String = Constants.defaultScriptsPath) {
         let runner = ScriptRunner(scriptsPath: scriptsPath)
         self.scriptRunner = runner
@@ -120,6 +127,7 @@ actor ToolExecutor {
            let geo = WindowCapture.geometry(contentBounds: bounds),
            let png = await WindowCapture.capturePNG(geo),
            !isMostlyBlackFrame(png) {
+            lastModelScreen = frameSignature(png)
             return .image(png)
         }
 
@@ -265,7 +273,8 @@ actor ToolExecutor {
         let marked = await debugMark(normX: tapX, normY: tapY, note: "tap")
         _ = try await inputController.tap(x: tapX, y: tapY)
         if debugMode, let marked {
-            return ToolResult(text: Self.markerPrompt(posX: tapX, posY: tapY),
+            let verdict = lastStaleVerdict.map { "\n\n" + $0 } ?? ""
+            return ToolResult(text: Self.markerPrompt(posX: tapX, posY: tapY) + verdict,
                               imageData: marked, isError: false)
         }
         return .text("Tapped at (\(tapX), \(tapY)). Screenshot to verify.")
@@ -279,8 +288,23 @@ actor ToolExecutor {
         guard let bounds = try? await inputController.getContentBounds(),
               let geo = WindowCapture.geometry(contentBounds: bounds),
               let png = await WindowCapture.capturePNG(geo) else { return nil }
+        lastStaleVerdict = staleVerdict(for: png)
         return WindowCapture.writeTapMarker(
-            normX: normX, normY: normY, png: png, note: note)
+            normX: normX, normY: normY, png: png,
+            note: note, sidecar: "\(note) at (\(normX),\(normY))\n\(lastStaleVerdict ?? "")")
+    }
+
+    /// Compare the live screen with the last one the model was shown.
+    private func staleVerdict(for png: Data) -> String {
+        guard let now = frameSignature(png) else { return "" }
+        defer { }
+        guard let seen = lastModelScreen else {
+            return "NOTE: the model had not taken a screenshot before this action."
+        }
+        return signaturesMatch(now, seen)
+            ? "Screen MATCHES the view the model aimed from (so any miss is an aiming error)."
+            : "WARNING: the screen CHANGED since the model's last screenshot - it aimed "
+                + "from a stale view. Take a fresh screenshot before acting."
     }
 
     static func markerPrompt(posX: Int, posY: Int) -> String {
@@ -595,6 +619,36 @@ private func setMirroringActive(_ active: Bool) {
         apps.first { $0.bundleIdentifier == "com.apple.finder" }?
             .activate(options: .activateIgnoringOtherApps)
     }
+}
+
+/// Coarse 16x16 luminance signature: enough to tell "same screen" from "navigated
+/// somewhere else" while ignoring the video stream's per-frame noise.
+func frameSignature(_ data: Data) -> [UInt8]? {
+    guard let rep = NSBitmapImageRep(data: data) else { return nil }
+    let width = rep.pixelsWide, height = rep.pixelsHigh
+    guard width > 16, height > 16 else { return nil }
+    var out: [UInt8] = []
+    out.reserveCapacity(256)
+    for row in 0..<16 {
+        for col in 0..<16 {
+            let posX = col * width / 16 + width / 32
+            let posY = row * height / 16 + height / 32
+            guard let color = rep.colorAt(x: min(posX, width - 1),
+                                          y: min(posY, height - 1))?
+                .usingColorSpace(.deviceRGB) else { return nil }
+            let lum = 0.299 * color.redComponent
+                + 0.587 * color.greenComponent + 0.114 * color.blueComponent
+            out.append(UInt8(max(0, min(255, lum * 255))))
+        }
+    }
+    return out
+}
+
+func signaturesMatch(_ lhs: [UInt8], _ rhs: [UInt8]) -> Bool {
+    guard lhs.count == rhs.count, !lhs.isEmpty else { return false }
+    var total = 0
+    for idx in 0..<lhs.count { total += abs(Int(lhs[idx]) - Int(rhs[idx])) }
+    return Double(total) / Double(lhs.count) <= 8.0
 }
 
 /// Cheap sampled-brightness check (~500 pixels) for an all-black frame.
