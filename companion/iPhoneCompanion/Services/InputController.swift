@@ -1,6 +1,11 @@
 import Foundation
 import CoreGraphics
 import AppKit
+import Carbon.HIToolbox
+
+// Just over the length limit after porting the layout keymap; the keymap belongs
+// with the input engine rather than in a separate file.
+// swiftlint:disable file_length
 
 /// Protocol for input control operations (DIP support).
 protocol InputControlling: Sendable {
@@ -232,13 +237,23 @@ actor InputController: InputControlling {
 
     // MARK: - Native Keystroke Posting
 
+    // iPhone Mirroring forwards the raw VIRTUAL KEYCODE and ignores any unicode
+    // payload from keyboardSetUnicodeString, so typing must resolve each character
+    // to the real key + modifiers on the active layout and post keycode events.
+    // (The previous unicode approach silently typed nothing into the phone.)
+    private static let keyMap: [Character: KeyStroke] = buildLayoutKeyMap()
+
     private func postKeystrokes(_ text: String) {
         let src = CGEventSource(stateID: .hidSystemState)
-        for char in text.unicodeScalars {
-            let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true)
-            let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: false)
-            keyDown?.keyboardSetUnicodeString(stringLength: 1, unicodeString: [UniChar(char.value)])
-            keyUp?.keyboardSetUnicodeString(stringLength: 1, unicodeString: [UniChar(char.value)])
+        for char in text {
+            guard let stroke = Self.keyMap[char] else {
+                NSLog("[Companion] typeText: no key for %@ on active layout, skipping", String(char))
+                continue
+            }
+            let keyDown = CGEvent(keyboardEventSource: src, virtualKey: stroke.code, keyDown: true)
+            let keyUp = CGEvent(keyboardEventSource: src, virtualKey: stroke.code, keyDown: false)
+            keyDown?.flags = stroke.flags
+            keyUp?.flags = stroke.flags
             keyDown?.post(tap: .cghidEventTap)
             keyUp?.post(tap: .cghidEventTap)
             Thread.sleep(forTimeInterval: Constants.keystrokeDelay)
@@ -341,4 +356,56 @@ enum InputError: LocalizedError {
             return msg
         }
     }
+}
+
+struct KeyStroke {
+    let code: CGKeyCode
+    let flags: CGEventFlags
+}
+
+/// Character -> keystroke for the ACTIVE keyboard layout, so typing works on
+/// AZERTY/QWERTZ/etc, not only US-QWERTY. Ported from the repo's input engine;
+/// iPhone Mirroring reads the virtual keycode, never the unicode payload.
+private func buildLayoutKeyMap() -> [Character: KeyStroke] {
+    guard let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue(),
+          let dataRef = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
+    else { return [:] }
+    let layoutData = Unmanaged<CFData>.fromOpaque(dataRef).takeUnretainedValue() as Data
+
+    // (carbon modifier bits for UCKeyTranslate, CGEventFlags for posting)
+    let combos: [(UInt32, CGEventFlags)] = [
+        (0, []),
+        (UInt32(shiftKey >> 8), .maskShift),
+        (UInt32(optionKey >> 8), .maskAlternate),
+        (UInt32((shiftKey | optionKey) >> 8), [.maskShift, .maskAlternate])
+    ]
+
+    var map: [Character: KeyStroke] = [:]
+    layoutData.withUnsafeBytes { rawBuffer in
+        guard let layout = rawBuffer.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return }
+        for (carbonMods, cgFlags) in combos {
+            for code in 0..<128 {
+                var deadKeyState: UInt32 = 0
+                var length = 0
+                var chars = [UniChar](repeating: 0, count: 4)
+                let status = UCKeyTranslate(
+                    layout, UInt16(code), UInt16(kUCKeyActionDown), carbonMods,
+                    UInt32(LMGetKbdType()), UInt32(kUCKeyTranslateNoDeadKeysBit),
+                    &deadKeyState, chars.count, &length, &chars
+                )
+                guard status == noErr, length == 1 else { continue }
+                let glyphString = String(utf16CodeUnits: chars, count: length)
+                guard let glyph = glyphString.first, !glyph.isNewline, glyph != "\u{0}" else { continue }
+                if map[glyph] == nil {
+                    map[glyph] = KeyStroke(code: CGKeyCode(code), flags: cgFlags)
+                }
+            }
+        }
+    }
+
+    // Whitespace/control keys are not produced by UCKeyTranslate above.
+    map["\n"] = KeyStroke(code: 36, flags: [])
+    map["\t"] = KeyStroke(code: 48, flags: [])
+    map[" "] = KeyStroke(code: 49, flags: [])
+    return map
 }
