@@ -14,7 +14,7 @@ struct ToolDefinitions {
              properties: [:]),
 
         tool("tap",
-             description: "Tap the iPhone screen. Coordinates are a 0-1000 grid (x: 0=left, 1000=right; y: 0=top, 1000=bottom), NOT pixels.",
+             description: "Tap at raw coordinates on a 0-1000 grid (x: 0=left, 1000=right; y: 0=top, 1000=bottom), NOT pixels. LAST RESORT ONLY: use it just for targets with NO text. If the target has any visible text, or sits in a dense grid like home-screen icons, call read first and tap the coordinates it returns - eyeballed positions are routinely off by 10-15% of the screen, which is a whole icon column, and land on the neighbouring app.",
              properties: [
                 "x": prop("number", "X on a 0-1000 grid (0=left edge, 1000=right edge)"),
                 "y": prop("number", "Y on a 0-1000 grid (0=top edge, 1000=bottom edge)")

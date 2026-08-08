@@ -135,8 +135,10 @@ enum Constants {
         "Search", then type_text the query.
 
         ## READ, SCROLL, WAIT (use these - they remove guesswork):
-        - read lists every visible text WITH its 0-1000 tap coordinates. When tap_text
-          misses or a target is unlabeled, read first and tap the listed coordinates.
+        - read lists every visible text WITH its 0-1000 tap coordinates. NEVER estimate
+          coordinates for something that has visible text: call read and use the exact
+          numbers it gives. Eyeballed positions land on the neighbouring element (a tap
+          meant for App Store hit Maps, off by one icon column).
         - scroll (native wheel) is THE way to move through lists and pages. Drag
           swipes do NOT scroll lists. scroll_to "Text" finds a row in a long list.
         - wait (condition=text/gone/still) replaces re-screenshotting: wait for a
