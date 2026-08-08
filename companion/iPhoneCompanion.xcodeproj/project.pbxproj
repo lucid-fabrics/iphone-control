@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		3A4C26CC652AF0A3FC3C19C0 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5421C5F06E5D895CB95F50B2 /* Theme.swift */; };
+		91E4809504CA760F6A6DC85C /* WindowCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE84B86D694C9EBC412F0682 /* WindowCapture.swift */; };
 		AA000001 /* CompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000001 /* CompanionApp.swift */; };
 		AA000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002 /* AppDelegate.swift */; };
 		AA000003 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000003 /* ChatView.swift */; };
@@ -75,6 +76,7 @@
 		AB000035 /* ChatToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatToolbarView.swift; sourceTree = "<group>"; };
 		AB000037 /* ModelConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelConfigView.swift; sourceTree = "<group>"; };
 		AB000099 /* iPhoneCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iPhoneCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BE84B86D694C9EBC412F0682 /* WindowCapture.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WindowCapture.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -159,6 +161,7 @@
 				AB000030 /* SSEStreamParser.swift */,
 				AB000031 /* AIServiceFactory.swift */,
 				AB000032 /* ToolOrchestrator.swift */,
+				BE84B86D694C9EBC412F0682 /* WindowCapture.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -278,6 +281,7 @@
 				AA000035 /* ChatToolbarView.swift in Sources */,
 				AA000037 /* ModelConfigView.swift in Sources */,
 				3A4C26CC652AF0A3FC3C19C0 /* Theme.swift in Sources */,
+				91E4809504CA760F6A6DC85C /* WindowCapture.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -337,9 +341,9 @@
 				CODE_SIGN_ENTITLEMENTS = iPhoneCompanion/iPhoneCompanion.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_TEAM = CFSRSGKWN8;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CFSRSGKWN8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iPhoneCompanion/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -363,9 +367,9 @@
 				CODE_SIGN_ENTITLEMENTS = iPhoneCompanion/iPhoneCompanion.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_TEAM = CFSRSGKWN8;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CFSRSGKWN8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iPhoneCompanion/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";

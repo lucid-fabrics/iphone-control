@@ -85,36 +85,49 @@ actor ToolExecutor {
     }
 
     private func executeScreenshot() async throws -> ToolResult {
-        // Prefer screenshot.sh: it crops to the alpha-scanned content rect, so the
-        // model sees the exact screen (the native path's rough margins cut ~36px
-        // off the top, hiding content like the first search result row).
+        // Primary: in-process ScreenCaptureKit. Reads the window straight from the
+        // window server (activation/occlusion can't black it) and crops to the
+        // alpha-scanned content rect, so pixels map 1:1 onto tap points.
+        if let bounds = try? await inputController.getContentBounds(),
+           let geo = WindowCapture.geometry(contentBounds: bounds),
+           let png = await WindowCapture.capturePNG(geo),
+           !isMostlyBlackFrame(png) {
+            return .image(png)
+        }
+
+        // Fallbacks: screenshot.sh (same crop via scripts), then rough native crop.
         let capture = (try? await scriptScreenshot()) ?? nativeScreenshot()
         guard let result = capture else {
             return .error("Screenshot failed. Check Screen Recording permission.")
         }
 
-        // Mirroring's stream intermittently yields black frames when its window is
-        // not active. A black image sent to the model triggers hallucinations
-        // ("window off-screen", "app unavailable"), so activate the mirror, retake
-        // once, and error out rather than ever forwarding a black frame.
+        // Mirroring intermittently yields all-black window captures depending on
+        // its activation state (observed both ways tonight; CLI captures with the
+        // mirror in the BACKGROUND always worked, and the one in-app success came
+        // right after an action that shuffled activation). A black frame fed to
+        // the model triggers hallucinations, so walk a retry ladder that tries
+        // BOTH activation states and never forward a black frame.
         guard let data = result.imageData, isMostlyBlackFrame(data) else { return result }
 
-        await activateMirroring()
-        try? await Task.sleep(nanoseconds: 700_000_000)
-        let retake = (try? await scriptScreenshot()) ?? nativeScreenshot()
-        if let retaken = retake, let newData = retaken.imageData, !isMostlyBlackFrame(newData) {
+        // Attempt 1: send the mirror to the background (matches the always-working
+        // CLI condition) and retake.
+        await setMirroringActive(false)
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        if let retaken = (try? await scriptScreenshot()) ?? nativeScreenshot(),
+           let newData = retaken.imageData, !isMostlyBlackFrame(newData) {
+            return retaken
+        }
+
+        // Attempt 2: foreground the mirror (wakes a paused stream) and retake.
+        await setMirroringActive(true)
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+        if let retaken = (try? await scriptScreenshot()) ?? nativeScreenshot(),
+           let newData = retaken.imageData, !isMostlyBlackFrame(newData) {
             return retaken
         }
         return .error("Screen capture came back black (mirroring stream paused). "
             + "The iPhone may be locked or the session inactive - do NOT conclude "
             + "anything about the phone's state from this.")
-    }
-
-    @MainActor
-    private func activateMirroring() {
-        NSWorkspace.shared.runningApplications
-            .first { $0.bundleIdentifier == Constants.iphoneMirroringBundleId }?
-            .activate(options: .activateIgnoringOtherApps)
     }
 
     private func scriptScreenshot() async throws -> ToolResult {
@@ -320,6 +333,21 @@ actor ToolExecutor {
         if let dblVal = value as? Double { return String(Int(dblVal)) }
         if let strVal = value as? String { return strVal }
         return nil
+    }
+}
+
+/// Foreground or background the iPhone Mirroring app (backgrounding = activate
+/// Finder, harmless and always running). Used by the black-frame retry ladder.
+@MainActor
+private func setMirroringActive(_ active: Bool) {
+    let apps = NSWorkspace.shared.runningApplications
+    if active {
+        apps.first { $0.bundleIdentifier == Constants.iphoneMirroringBundleId }?
+            .activate(options: .activateIgnoringOtherApps)
+    } else if NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        == Constants.iphoneMirroringBundleId {
+        apps.first { $0.bundleIdentifier == "com.apple.finder" }?
+            .activate(options: .activateIgnoringOtherApps)
     }
 }
 
