@@ -70,6 +70,9 @@ enum Constants {
 
     static let tapDownUpDelay: TimeInterval = 0.02
     static let activateDelay: TimeInterval = 0.05
+    // Max wait for iPhone Mirroring to actually become active; events posted
+    // before activation lands never reach the phone.
+    static let activateTimeout: TimeInterval = 0.5
     static let userIdleThreshold: TimeInterval = 0.3       // user input quiet this long before we act
     static let userIdleTimeout: TimeInterval = 5.0         // max wait for idle before acting anyway
     static let sessionCloseDelay: TimeInterval = 0.05      // let mirroring consume events before focus leaves

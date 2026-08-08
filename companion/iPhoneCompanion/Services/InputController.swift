@@ -393,8 +393,19 @@ actor InputController: InputControlling {
         let cursor = CGEvent(source: nil)?.location ?? .zero
         let previous = NSWorkspace.shared.frontmostApplication
         let apps = NSWorkspace.shared.runningApplications
-        if let im = apps.first(where: { $0.bundleIdentifier == Constants.iphoneMirroringBundleId }) {
-            im.activate(options: .activateIgnoringOtherApps)
+        if let mirror = apps.first(where: {
+            $0.bundleIdentifier == Constants.iphoneMirroringBundleId
+        }) {
+            mirror.activate(options: .activateIgnoringOtherApps)
+            // POLL for activation instead of sleeping a fixed guess. The tested
+            // engine's comment says it outright: events posted before activation
+            // lands DO NOT REACH THE PHONE. A blind 50ms sleep lost every tap
+            // whenever activation ran slower, which is the whole "taps are being
+            // ignored" class of failures.
+            let deadline = Date().addingTimeInterval(Constants.activateTimeout)
+            while !mirror.isActive && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.005)
+            }
         }
         Thread.sleep(forTimeInterval: Constants.activateDelay)
         return InputSession(cursor: cursor, previousApp: previous)
@@ -417,6 +428,12 @@ actor InputController: InputControlling {
         if let previous = session.previousApp,
            previous.bundleIdentifier != Constants.iphoneMirroringBundleId {
             previous.activate(options: .activateIgnoringOtherApps)
+            // activate() is a request to the window server; returning immediately
+            // can drop it and leave the user staring at iPhone Mirroring.
+            let deadline = Date().addingTimeInterval(Constants.activateTimeout)
+            while !previous.isActive && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.005)
+            }
         }
     }
 
