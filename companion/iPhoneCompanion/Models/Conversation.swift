@@ -94,7 +94,11 @@ class Conversation: ObservableObject {
                     self?.messages.append(msg)
                 },
                 updateChatMessage: { [weak self] idx, content in
-                    self?.messages[idx].content = content
+                    // The index is captured before a tool runs and written back
+                    // after; clearing the chat mid-run shrinks the array and made
+                    // this a hard crash (index out of range).
+                    guard let self, self.messages.indices.contains(idx) else { return }
+                    self.messages[idx].content = content
                 },
                 chatMessageCount: { [weak self] in
                     self?.messages.count ?? 0
@@ -123,6 +127,13 @@ class Conversation: ObservableObject {
     }
 
     func clearHistory() {
+        // Stop any run first: a loop that keeps writing into the history we just
+        // emptied is both confusing on screen and a source of stale indices.
+        if isProcessing {
+            currentTask?.cancel()
+            currentTask = nil
+            isProcessing = false
+        }
         messages.removeAll()
         apiMessages.removeAll()
     }
