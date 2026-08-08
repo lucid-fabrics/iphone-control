@@ -9,6 +9,8 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
         self.model = model
     }
 
+    // Pre-existing single-pass SSE reader; splitting it would not make it clearer.
+    // swiftlint:disable:next cyclomatic_complexity function_body_length line_length
     func send(messages: [APIMessage], tools: [[String: Any]], systemPrompt: String) async throws -> AsyncStream<StreamEvent> {
         let mmMessages = buildMessages(messages: messages, systemPrompt: systemPrompt)
         let mmTools = buildTools(tools: tools)
@@ -17,7 +19,7 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
             "model": model,
             "messages": mmMessages,
             "stream": true,
-            "max_tokens": Constants.maxTokens,
+            "max_tokens": Constants.maxTokens
         ]
 
         if !mmTools.isEmpty {
@@ -48,7 +50,11 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
         return AsyncStream { continuation in
             Task {
                 // Accumulate streaming tool_calls by index (OpenAI v1 streaming format)
-                var toolCallsById: [Int: (id: String, name: String, arguments: String)] = [:]
+                var toolCallsById: [Int: PartialToolCall] = [:]
+                // MiniMax M2/M3 are reasoning models: they wrap chain-of-thought in
+                // inline <think>...</think> inside the content stream. Strip it so only
+                // the user-facing answer reaches the UI and the stored history.
+                let stripper = ThinkStripper()
 
                 do {
                     for try await line in bytes.lines {
@@ -69,9 +75,10 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
                         else { continue }
 
                         if let delta = choice["delta"] as? [String: Any] {
-                            // Text content
+                            // Text content (with <think>...</think> reasoning removed)
                             if let content = delta["content"] as? String, !content.isEmpty {
-                                continuation.yield(.textDelta(content))
+                                let visible = stripper.feed(content)
+                                if !visible.isEmpty { continuation.yield(.textDelta(visible)) }
                             }
 
                             // OpenAI v1 tool_calls streaming format
@@ -79,9 +86,9 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
                                 for chunk in toolCallChunks {
                                     let index = chunk["index"] as? Int ?? 0
                                     let chunkId = chunk["id"] as? String ?? ""
-                                    let fn = chunk["function"] as? [String: Any] ?? [:]
-                                    let chunkName = fn["name"] as? String ?? ""
-                                    let chunkArgs = fn["arguments"] as? String ?? ""
+                                    let funcObj = chunk["function"] as? [String: Any] ?? [:]
+                                    let chunkName = funcObj["name"] as? String ?? ""
+                                    let chunkArgs = funcObj["arguments"] as? String ?? ""
 
                                     if var existing = toolCallsById[index] {
                                         existing.arguments += chunkArgs
@@ -89,7 +96,8 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
                                         if !chunkName.isEmpty { existing.name = chunkName }
                                         toolCallsById[index] = existing
                                     } else {
-                                        toolCallsById[index] = (id: chunkId, name: chunkName, arguments: chunkArgs)
+                                        toolCallsById[index] = PartialToolCall(
+                                            id: chunkId, name: chunkName, arguments: chunkArgs)
                                     }
                                 }
                             }
@@ -125,6 +133,10 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
                             }
                             toolCallsById.removeAll()
 
+                            // Flush any text held back for partial-tag detection.
+                            let tail = stripper.flush()
+                            if !tail.isEmpty { continuation.yield(.textDelta(tail)) }
+
                             let isToolUse = reason == "tool_calls" || hadToolCalls
                             continuation.yield(.done(stopReason: isToolUse ? "tool_use" : "stop"))
                         }
@@ -140,12 +152,14 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
 
     // MARK: - Message Building
 
+    // Pre-existing builder; the role/tool-call fan-out keeps it just over the limits.
+    // swiftlint:disable cyclomatic_complexity function_body_length
     /// Build OpenAI-compatible messages array.
     /// Tool calls → assistant message with `tool_calls` field.
     /// Tool results → separate `role: "tool"` messages.
     private func buildMessages(messages: [APIMessage], systemPrompt: String) -> [[String: Any]] {
         var result: [[String: Any]] = [
-            ["role": "system", "content": systemPrompt],
+            ["role": "system", "content": systemPrompt]
         ]
 
         for msg in messages {
@@ -168,18 +182,18 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
                     toolCalls.append([
                         "id": id,
                         "type": "function",
-                        "function": ["name": name, "arguments": inputJson],
+                        "function": ["name": name, "arguments": inputJson]
                     ])
 
                 case .toolResult(let toolUseId, let subContent, _):
                     var resultText = ""
                     for sub in subContent {
-                        if case .text(let t) = sub { resultText += t }
+                        if case .text(let piece) = sub { resultText += piece }
                     }
                     toolResults.append([
                         "role": "tool",
                         "tool_call_id": toolUseId,
-                        "content": resultText,
+                        "content": resultText
                     ])
                 }
             }
@@ -210,6 +224,7 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
 
         return result
     }
+    // swiftlint:enable cyclomatic_complexity function_body_length
 
     private func buildUserContent(textParts: [String], msg: APIMessage) -> Any {
         // Check if there are images
@@ -224,7 +239,7 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
                 if case .image(let base64, let mediaType) = block {
                     blocks.append([
                         "type": "image_url",
-                        "image_url": ["url": "data:\(mediaType);base64,\(base64)"],
+                        "image_url": ["url": "data:\(mediaType);base64,\(base64)"]
                     ])
                 }
             }
@@ -248,9 +263,77 @@ class MiniMaxService: ToolCapableAIService, VisionCapableAIService {
                 "function": [
                     "name": name,
                     "description": description,
-                    "parameters": inputSchema,
-                ],
+                    "parameters": inputSchema
+                ]
             ]
+        }
+    }
+}
+
+/// Accumulated OpenAI-style streaming tool call (id/name/arguments arrive in pieces).
+private struct PartialToolCall {
+    var id: String
+    var name: String
+    var arguments: String
+}
+
+/// Removes inline `<think>...</think>` chain-of-thought from a streamed token feed.
+/// Reasoning models (MiniMax M2/M3) emit their thinking this way; only the answer
+/// should reach the UI. Tags split across chunks are handled by holding back a short
+/// tail until it can be resolved.
+final class ThinkStripper {
+    private static let openTag = "<think>"
+    private static let closeTag = "</think>"
+    private static let maxTagLength = 8   // count("</think>")
+
+    private var buffer = ""
+    private var insideThink = false
+
+    /// Feed one content delta; returns the portion safe to display now.
+    func feed(_ chunk: String) -> String {
+        buffer += chunk
+        var output = ""
+        consumeTags(into: &output)
+
+        if insideThink {
+            // Discard reasoning text, keeping only a possible partial closing tag.
+            if buffer.count > Self.maxTagLength - 1 {
+                buffer = String(buffer.suffix(Self.maxTagLength - 1))
+            }
+        } else {
+            // Emit everything except a possible partial opening tag.
+            let hold = Self.maxTagLength - 1
+            if buffer.count > hold {
+                let cut = buffer.index(buffer.endIndex, offsetBy: -hold)
+                output += String(buffer[..<cut])
+                buffer = String(buffer[cut...])
+            }
+        }
+        return output
+    }
+
+    /// Flush any remaining buffered text at the end of the stream.
+    func flush() -> String {
+        var output = ""
+        consumeTags(into: &output)
+        if !insideThink { output += buffer }
+        buffer = ""
+        return output
+    }
+
+    /// Resolve every complete tag currently buffered, appending visible text.
+    private func consumeTags(into output: inout String) {
+        while true {
+            if insideThink {
+                guard let range = buffer.range(of: Self.closeTag) else { return }
+                buffer.removeSubrange(buffer.startIndex..<range.upperBound)
+                insideThink = false
+            } else {
+                guard let range = buffer.range(of: Self.openTag) else { return }
+                output += String(buffer[buffer.startIndex..<range.lowerBound])
+                buffer.removeSubrange(buffer.startIndex..<range.upperBound)
+                insideThink = true
+            }
         }
     }
 }
