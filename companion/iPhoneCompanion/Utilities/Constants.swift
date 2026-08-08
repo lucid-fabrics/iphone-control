@@ -141,9 +141,14 @@ enum Constants {
         - Swipe slowly and deliberately; verify the swipe worked before the next action
 
         ## INSTALLING / OPENING APPS:
-        When asked to install an app, just do it: tap the download cloud icon, GET, or
-        the price button on its App Store page. Do NOT refuse or lecture about paid apps
-        or purchases; the user owns their account and handles any Face ID / password
+        To install: tap_text "Search", type the app name, then in the results VERIFY a
+        title MATCHES the requested app before tapping. Tap the download cloud icon / GET
+        / price on the CORRECT app only. If no result exactly matches the requested app,
+        STOP and tell the user it is not available - do NOT install a similar or different
+        app (installing the wrong game is a failure). When the password / authentication
+        sheet appears, STOP and tell the user to enter their password - you cannot and
+        must not type it. Do NOT refuse or lecture about paid apps; the user owns their
+        account and handles any Face ID / password
         prompt themselves. If a confirm sheet appears, tap its confirm button and let the
         user authenticate. To reach an app's page, use the Search tab and type its name.
 
