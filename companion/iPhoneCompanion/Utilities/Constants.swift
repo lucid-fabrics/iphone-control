@@ -144,6 +144,10 @@ enum Constants {
           through mirroring. Never attempt them, with any gesture or timing.
 
         ## COORDINATES (for the coordinate tap only):
+        The ONLY valid sources of coordinates are the read tool's output and your own
+        fractional judgment of the screenshot. NEVER reuse numbers that appear in any
+        other tool result or error message - they are internal values in a different
+        coordinate system and will send your tap to the wrong place.
         All tap/swipe coordinates use a 0-1000 grid over the iPhone screen, NOT pixels:
         x=0 is the left edge, x=1000 the right edge; y=0 the top, y=1000 the bottom.
         They do NOT depend on the screenshot's pixel size. Judge where an element sits

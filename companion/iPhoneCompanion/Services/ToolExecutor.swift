@@ -271,13 +271,28 @@ actor ToolExecutor {
             args.append("--row-right")
         }
         do {
-            let result = try await scriptRunner.run(
+            _ = try await scriptRunner.run(
                 script: "tap-text.sh", args: args, timeout: Constants.defaultScriptTimeout)
-            return .text(result.stdout.isEmpty ? "Tapped text: \(text)" : result.stdout)
+            // Deliberately NO coordinates in the result: the script echoes content
+            // points and Mac screen coords, and models reused those numbers as
+            // 0-1000 grid values, sending later taps to the wrong spot entirely.
+            let suffix = (input["row_button"] as? Bool) == true ? " (its row's action button)" : ""
+            return .text("Tapped \"\(text)\"\(suffix). Screenshot or read to verify.")
         } catch {
             // No OCR match: tell the model so it can retry different text or use tap.
             return .error("Could not find text \"\(text)\" on screen. Try different wording or use tap.")
         }
+    }
+
+    /// Strip content-point / Mac-screen coordinates from script output. Models
+    /// treat ANY number pair in a tool result as tap coordinates; only the 0-1000
+    /// grid (read's output) may ever reach them.
+    private func stripCoords(_ text: String) -> String {
+        var cleaned = text.replacingOccurrences(
+            of: #" ?-> screen \(-?\d+, ?-?\d+\)"#, with: "", options: .regularExpression)
+        cleaned = cleaned.replacingOccurrences(
+            of: #" ?at \(-?\d+, ?-?\d+\)"#, with: "", options: .regularExpression)
+        return cleaned
     }
 
     private func executeSwipe(input: [String: Any]) async throws -> ToolResult {
@@ -408,7 +423,7 @@ actor ToolExecutor {
         if (input["tap"] as? Bool) == true { args.append("--tap") }
         let result = try await scriptRunner.run(
             script: "scroll-to.sh", args: args, timeout: Constants.scanTimeout)
-        return .text(result.stdout.isEmpty ? "Done." : result.stdout)
+        return .text(result.stdout.isEmpty ? "Done." : stripCoords(result.stdout))
     }
 
     private func executeClearText() async throws -> ToolResult {

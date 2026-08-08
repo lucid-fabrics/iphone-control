@@ -6,10 +6,9 @@ import Foundation
 
 struct ToolDefinitions {
     static let all: [[String: Any]] = [
-        tool("find_window",
-             description: "Locate the iPhone Mirroring window. Returns JSON with window bounds and content bounds (iOS screen area inside bezel).",
-             properties: [:]),
-
+        // find_window is deliberately NOT exposed: its Mac-coordinate JSON made
+        // models reason about window positions ("off-screen at x=4639") and mix
+        // coordinate systems. The 0-1000 grid + read cover every model need.
         tool("screenshot",
              description: "Take a screenshot of the iPhone screen. Returns the image directly.",
              properties: [:]),
