@@ -64,7 +64,7 @@ enum Constants {
 
     // MARK: - Tool Loop Limits
 
-    static let maxToolIterations = 40
+    static let maxToolIterations = 80
 
     // MARK: - Timing Constants (Input Controller)
 
@@ -79,7 +79,9 @@ enum Constants {
     static let keystrokeDelay: TimeInterval = 0.005
     static let menuOpenDelay: TimeInterval = 0.1
     static let spotlightOpenDelay: UInt64 = 400_000_000  // nanoseconds
-    static let spotlightSearchDelay: UInt64 = 1_000_000_000  // nanoseconds
+    // 1.0s was racy: Return could fire while a web/media suggestion was still the
+    // top hit, opening YouTube/Safari instead of the requested app.
+    static let spotlightSearchDelay: UInt64 = 1_600_000_000  // nanoseconds
 
     // MARK: - App Identifiers
 

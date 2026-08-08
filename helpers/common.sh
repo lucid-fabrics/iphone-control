@@ -29,7 +29,9 @@ LAST_POST_STAMP="/tmp/iphone-control-last-post"  # epoch of our last synthetic e
 SCROLL_POINTS_PER_LINE=3  # calibration: content points scrolled per wheel line
 SCROLL_LINES_PER_EVENT=3  # lines per wheel event (like a physical wheel notch)
 ICON_DRAG_SPEED=0.45      # px per ms (~450px/s); SpringBoard tracks this fine once lifted
-SPOTLIGHT_SEARCH_DELAY=1.0
+# 1.0 was racy: Return sometimes fired while a web/media suggestion was still top
+# hit, opening YouTube/Safari instead of the requested app.
+SPOTLIGHT_SEARCH_DELAY=1.6
 PAGE_SWIPE_DELAY=0.3
 HOME_SETTLE_DELAY=0.5
 

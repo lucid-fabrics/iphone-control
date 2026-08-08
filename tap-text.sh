@@ -37,11 +37,20 @@ fi
 window_json=$("$SCRIPT_DIR/find-window.sh")
 parse_window_bounds "$window_json"
 
+# Lowercase + fold typographic punctuation to ASCII so a query typed with a
+# straight apostrophe matches iOS text rendered with curly ones ("Don't Allow"
+# vs "Don't Allow" was an unmatchable pair and cost agent runs dearly).
+_fold_text() {
+    printf '%s' "$1" \
+        | perl -CSD -pe "s/[\x{2018}\x{2019}\x{02BC}]/'/g; s/[\x{201C}\x{201D}]/\"/g; s/[\x{2013}\x{2014}]/-/g; s/\x{2026}/.../g" \
+        | tr '[:upper:]' '[:lower:]'
+}
+
 # Cached fast path: reuse the last OCR'd position for this query at this
 # content size (chrome like Done/Edit is position-stable). Cache line format:
 # query_lc|content_w|content_h|index|cx|cy
 CACHE_FILE="/tmp/iphone-tap-text-cache"
-query_lc=$(printf '%s' "$query" | tr '[:upper:]' '[:lower:]')
+query_lc=$(_fold_text "$query")
 cache_key="${query_lc}|${CONTENT_W}|${CONTENT_H}|${index}"
 if $cached && [[ -f "$CACHE_FILE" ]]; then
     hit=$(grep -F "${cache_key}|" "$CACHE_FILE" 2>/dev/null | head -1 || true)
@@ -95,7 +104,7 @@ while IFS= read -r line; do
     text="${f[0]}"
     for (( i = 1; i < n - 4; i++ )); do text+="|${f[i]}"; done
     seen+=("$text")
-    text_lc=$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]')
+    text_lc=$(_fold_text "$text")
     cx=$(( (x + w / 2) / SCALE ))
     cy=$(( (y + h / 2) / SCALE ))
     entry="${cy}|${cx}|${text}"
