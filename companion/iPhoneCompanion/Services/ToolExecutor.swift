@@ -264,20 +264,78 @@ actor ToolExecutor {
     }
 
     private func executeTap(input: [String: Any]) async throws -> ToolResult {
-        guard let tapX = intValue(input["x"]),
-              let tapY = intValue(input["y"]) else {
+        guard let rawX = intValue(input["x"]),
+              let rawY = intValue(input["y"]) else {
             return .error("tap requires x and y coordinates")
         }
+        // Snap to the nearest OCR'd element when one is within a button's radius.
+        // Models compute coordinates from an assumed layout (an evenly spaced
+        // keypad, say) instead of querying read, and land on the neighbouring
+        // control: 47x89 was typed as 88750 because columns were assumed at
+        // 95/190/288/385 when they really sat at 147/381/614/842.
+        let snap = await snapToElement(normX: rawX, normY: rawY)
+        let tapX = snap?.x ?? rawX
+        let tapY = snap?.y ?? rawY
+
         // Snapshot the screen the model was aiming at, marked with where the tap
         // will land, so a miss can be SEEN instead of inferred.
         let marked = await debugMark(normX: tapX, normY: tapY, note: "tap")
         _ = try await inputController.tap(x: tapX, y: tapY)
+
+        let snapNote = snap.map {
+            " Snapped from (\(rawX), \(rawY)) onto \"\($0.label)\" at (\($0.x), \($0.y)):"
+                + " your coordinates were off by \(abs(rawX - $0.x)),\(abs(rawY - $0.y))."
+                + " Use read to get exact positions instead of estimating."
+        } ?? ""
         if debugMode, let marked {
             let verdict = lastStaleVerdict.map { "\n\n" + $0 } ?? ""
-            return ToolResult(text: Self.markerPrompt(posX: tapX, posY: tapY) + verdict,
-                              imageData: marked, isError: false)
+            return ToolResult(
+                text: Self.markerPrompt(posX: tapX, posY: tapY) + snapNote + verdict,
+                imageData: marked, isError: false)
         }
-        return .text("Tapped at (\(tapX), \(tapY)). Screenshot to verify.")
+        return .text("Tapped at (\(tapX), \(tapY)).\(snapNote) Screenshot to verify.")
+    }
+
+    /// Nearest OCR'd element to a requested point, if it is within roughly one
+    /// button (12% of the screen diagonal). Returns nil when the model is tapping
+    /// empty space or an unlabeled control, so free-form taps still work.
+    struct SnapTarget {
+        let x: Int
+        let y: Int
+        let label: String
+    }
+
+    private func snapToElement(normX: Int, normY: Int) async -> SnapTarget? {
+        guard let bounds = try? await inputController.getContentBounds(),
+              bounds.contentWidth > 0, bounds.contentHeight > 0,
+              let result = try? await scriptRunner.run(
+                script: "read.sh", args: [], timeout: Constants.defaultScriptTimeout)
+        else { return nil }
+
+        var best: SnapTarget?
+        var bestDistance = Double.greatestFiniteMagnitude
+        for line in result.stdout.split(separator: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+            guard let coords = parts.first, let comma = coords.firstIndex(of: ","),
+                  let pointX = Int(coords[..<comma]),
+                  let pointY = Int(coords[coords.index(after: comma)...])
+            else { continue }
+            let gridX = pointX * 1000 / bounds.contentWidth
+            let gridY = pointY * 1000 / bounds.contentHeight
+            let distance = (Double(gridX - normX) * Double(gridX - normX)
+                + Double(gridY - normY) * Double(gridY - normY)).squareRoot()
+            if distance < bestDistance {
+                bestDistance = distance
+                best = SnapTarget(
+                    x: gridX, y: gridY,
+                    label: parts.count > 1
+                        ? String(parts[1]).trimmingCharacters(in: .whitespaces) : "")
+            }
+        }
+        // Only snap a genuine near-miss; a far-away match means a different intent.
+        guard bestDistance <= 120, bestDistance > 0 else { return nil }
+        return best
     }
 
     /// Write /tmp/iphone-companion-taps/<ts>-<note>.png: the screen as it was when
