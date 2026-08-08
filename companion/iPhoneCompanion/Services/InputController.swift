@@ -8,7 +8,7 @@ import Carbon.HIToolbox
 // swiftlint:disable file_length
 // Geometry API: x, y, x1..y2, dx, dy are the standard names for coordinates and
 // deltas here; longer identifiers would make the math harder to read.
-// swiftlint:disable type_body_length
+// swiftlint:disable type_body_length identifier_name
 
 /// Protocol for input control operations (DIP support).
 protocol InputControlling: Sendable {
@@ -221,6 +221,10 @@ actor InputController: InputControlling {
             _ = try await clickViewMenuItemCore("Spotlight")
             try await Task.sleep(nanoseconds: Constants.spotlightOpenDelay)
 
+            // Clear any stale query first: iOS Spotlight restores the previous
+            // search, so typing would append and Return would hit the old result.
+            clearFocusedField()
+
             // Type the app name
             postKeystrokes(appName)
             try await Task.sleep(nanoseconds: Constants.spotlightSearchDelay)
@@ -334,12 +338,23 @@ actor InputController: InputControlling {
         }
     }
 
-    private func postKeyCode(_ keyCode: CGKeyCode) {
+    private func postKeyCode(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {
         let src = CGEventSource(stateID: .hidSystemState)
         let keyDown = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: true)
         let keyUp = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
+        keyDown?.flags = flags
+        keyUp?.flags = flags
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
+    }
+
+    /// Select-all + delete: clears a text field regardless of its current content.
+    private func clearFocusedField() {
+        let keyA = Self.keyMap["a"]?.code ?? 0
+        postKeyCode(keyA, flags: .maskCommand)
+        Thread.sleep(forTimeInterval: 0.15)
+        postKeyCode(51)   // delete
+        Thread.sleep(forTimeInterval: 0.15)
     }
 
     // MARK: - Input Session (steal cursor/focus politely, give both back)
@@ -484,4 +499,4 @@ private func buildLayoutKeyMap() -> [Character: KeyStroke] {
     return map
 }
 
-// swiftlint:enable type_body_length
+// swiftlint:enable type_body_length identifier_name

@@ -34,6 +34,12 @@ proc.menuBars[0].menuBarItems.byName('View').menus[0].menuItems.byName('Spotligh
 const nameData = \$.NSData.dataWithContentsOfFile('${tmp_name}');
 const appName = \$.NSString.alloc.initWithDataEncoding(nameData, \$.NSUTF8StringEncoding).js;
 const se = Application('System Events');
+// Clear any stale query first: iOS Spotlight restores the previous search, so
+// typing would append to it and Return would fire on the wrong (old) result.
+se.keystroke('a', { using: 'command down' });
+\$.NSThread.sleepForTimeInterval(0.15);
+se.keyCode(51);
+\$.NSThread.sleepForTimeInterval(0.15);
 se.keystroke(appName);
 \$.NSThread.sleepForTimeInterval(${SPOTLIGHT_SEARCH_DELAY});
 

@@ -114,6 +114,14 @@ enum Constants {
     static let systemPrompt = """
         You control an iPhone through iPhone Mirroring on macOS. You have tools to tap, swipe, type, take screenshots, open apps, and navigate.
 
+        ## OPENING APPS (HARD RULE):
+        ALWAYS use the open_app tool to launch any app, by name. NEVER tap an app icon
+        on the home screen and never hunt for icons: icon grids are dense and a
+        misjudged tap opens Maps/Weather/Health instead, which wastes the whole run.
+        open_app is deterministic and does not depend on coordinates. If open_app
+        reports success but the screenshot still shows the home screen, wait one
+        second and screenshot again before doing anything else.
+
         ## HOW TO TAP (IMPORTANT):
         PREFER tap_text for anything with a visible text label: buttons, tabs, links,
         list items, search results (e.g. tap_text "Search", "Get", "Not Now", "Tiny
