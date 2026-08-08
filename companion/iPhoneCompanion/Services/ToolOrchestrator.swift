@@ -22,6 +22,9 @@ actor ToolOrchestrator {
         let isCancelled: () -> Bool
     }
 
+    // Pre-existing single-function agent loop (stream, accumulate, execute, repeat);
+    // splitting it would not make the control flow clearer.
+    // swiftlint:disable cyclomatic_complexity function_body_length line_length large_tuple
     func runAILoop(callbacks: LoopCallbacks) async {
         var iteration = 0
 
@@ -87,8 +90,11 @@ actor ToolOrchestrator {
                     callbacks.appendApiMessage(APIMessage(role: "assistant", content: assistantBlocks))
                 }
 
-                // If no tool calls, we're done
-                if stopReason != "tool_use" || toolCalls.isEmpty {
+                // Execute whenever the model produced tool calls, regardless of how the
+                // provider labeled finish_reason. OpenRouter (Bedrock) reports "end_turn"
+                // even with tool_calls present, so gating on stopReason == "tool_use"
+                // silently dropped valid tool calls and nothing happened.
+                if toolCalls.isEmpty {
                     NSLog("[Companion] AI loop done: stopReason=%@, toolCalls=%d, textLen=%d", stopReason, toolCalls.count, assistantText.count)
                     return
                 }
@@ -101,7 +107,7 @@ actor ToolOrchestrator {
                     guard !callbacks.isCancelled() else { return }
                     // Show tool running status
                     let toolMsg = ChatMessage(role: .assistant, content: [
-                        .toolCall(id: call.id, name: call.name, status: .running),
+                        .toolCall(id: call.id, name: call.name, status: .running)
                     ])
                     callbacks.appendChatMessage(toolMsg)
                     let toolMsgIndex = callbacks.chatMessageCount() - 1
@@ -111,11 +117,11 @@ actor ToolOrchestrator {
                     // Update tool status
                     if result.isError {
                         callbacks.updateChatMessage(toolMsgIndex, [
-                            .toolCall(id: call.id, name: call.name, status: .failed(result.text ?? "Unknown error")),
+                            .toolCall(id: call.id, name: call.name, status: .failed(result.text ?? "Unknown error"))
                         ])
                     } else {
                         callbacks.updateChatMessage(toolMsgIndex, [
-                            .toolCall(id: call.id, name: call.name, status: .completed),
+                            .toolCall(id: call.id, name: call.name, status: .completed)
                         ])
                     }
 
@@ -159,4 +165,5 @@ actor ToolOrchestrator {
 
         callbacks.appendChatMessage(.assistant("Stopped: too many tool call iterations."))
     }
+    // swiftlint:enable cyclomatic_complexity function_body_length line_length large_tuple
 }
