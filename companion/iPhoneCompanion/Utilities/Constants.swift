@@ -76,7 +76,9 @@ enum Constants {
     static let syntheticEventSlack: TimeInterval = 0.2     // HID events this close to our own post are ours
     static let tapSettleDelay: UInt64 = 600_000_000        // 600ms - let iOS animation settle after tap
     static let swipeSettleDelay: UInt64 = 500_000_000      // 500ms - let iOS settle after swipe
-    static let keystrokeDelay: TimeInterval = 0.005
+    // Matches the proven CLI (KEY_DELAY=0.015). At 5ms, iOS search-as-you-type
+    // could miss keystrokes / not refresh results.
+    static let keystrokeDelay: TimeInterval = 0.015
     static let menuOpenDelay: TimeInterval = 0.1
     static let spotlightOpenDelay: UInt64 = 400_000_000  // nanoseconds
     // 1.0s was racy: Return could fire while a web/media suggestion was still the

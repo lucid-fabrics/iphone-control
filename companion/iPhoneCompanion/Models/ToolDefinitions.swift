@@ -1,5 +1,9 @@
 import Foundation
 
+// Tool descriptions are model-facing prose; wrapping them mid-sentence hurts
+// readability of the text the LLM actually reads.
+// swiftlint:disable line_length
+
 struct ToolDefinitions {
     static let all: [[String: Any]] = [
         tool("find_window",
@@ -38,13 +42,21 @@ struct ToolDefinitions {
              required: ["x1", "y1", "x2", "y2"]),
 
         tool("type_text",
-             description: "Type text into the iPhone. Optionally tap a field first (0-1000 grid coordinates).",
+             description: "Type text into the iPhone and press Return by default (required to actually run a search - typing alone leaves the query sitting in the box). Optionally tap a field first (0-1000 grid).",
              properties: [
                 "text": prop("string", "Text to type"),
                 "x": prop("number", "X of field to tap first, 0-1000 (0=left, 1000=right)"),
-                "y": prop("number", "Y of field to tap first, 0-1000 (0=top, 1000=bottom)")
+                "y": prop("number", "Y of field to tap first, 0-1000 (0=top, 1000=bottom)"),
+                "submit": prop("boolean", "Press Return after typing (default true). Set false to keep typing.")
              ],
              required: ["text"]),
+
+        tool("press_key",
+             description: "Press a single key on the iPhone: return (submit a search), escape, delete, tab, space, or an arrow key.",
+             properties: [
+                "key": prop("string", "return | escape | delete | tab | space | left | right | up | down")
+             ],
+             required: ["key"]),
 
         tool("open_app",
              description: "Open an app on the iPhone by name. Uses registry (fast) with Spotlight fallback. Run scan_apps first to populate the registry.",
@@ -100,3 +112,4 @@ struct ToolDefinitions {
         ]
     }
 }
+// swiftlint:enable line_length

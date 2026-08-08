@@ -6,12 +6,16 @@ import Carbon.HIToolbox
 // Just over the length limit after porting the layout keymap; the keymap belongs
 // with the input engine rather than in a separate file.
 // swiftlint:disable file_length
+// Geometry API: x, y, x1..y2, dx, dy are the standard names for coordinates and
+// deltas here; longer identifiers would make the math harder to read.
+// swiftlint:disable identifier_name type_body_length
 
 /// Protocol for input control operations (DIP support).
 protocol InputControlling: Sendable {
     func tap(x: Int, y: Int) async throws -> String
     func swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int) async throws -> String
-    func typeText(_ text: String, tapX: Int?, tapY: Int?) async throws -> String
+    func typeText(_ text: String, tapX: Int?, tapY: Int?, submit: Bool) async throws -> String
+    func pressKey(_ name: String) async throws -> String
     func clickViewMenuItem(_ itemName: String) async throws -> String
     func openAppViaSpotlight(_ appName: String) async throws -> String
     func getContentBounds() async throws -> InputController.ContentBounds
@@ -57,7 +61,8 @@ actor InputController: InputControlling {
         let session = await beginSession()
         let pt = CGPoint(x: absX, y: absY)
 
-        let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: pt, mouseButton: .left)
+        let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
+                         mouseCursorPosition: pt, mouseButton: .left)
         let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: pt, mouseButton: .left)
 
         down?.post(tap: .cghidEventTap)
@@ -88,19 +93,22 @@ actor InputController: InputControlling {
         let steps = 20
         let stepDelay = Double(durationMs) / 1000.0 / Double(steps)
 
-        let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: startPt, mouseButton: .left)
+        let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
+                         mouseCursorPosition: startPt, mouseButton: .left)
         down?.post(tap: .cghidEventTap)
 
         // Immediate kick to 30% - iOS needs early movement to distinguish drag from long-press
         let kickPt = CGPoint(x: Double(absX1) + dx * 0.3, y: Double(absY1) + dy * 0.3)
-        let kick = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: kickPt, mouseButton: .left)
+        let kick = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged,
+                         mouseCursorPosition: kickPt, mouseButton: .left)
         kick?.post(tap: .cghidEventTap)
 
         for i in 1...steps {
             Thread.sleep(forTimeInterval: stepDelay)
             let f = 0.3 + 0.7 * (Double(i) / Double(steps))
             let mid = CGPoint(x: Double(absX1) + dx * f, y: Double(absY1) + dy * f)
-            let drag = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: mid, mouseButton: .left)
+            let drag = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged,
+                         mouseCursorPosition: mid, mouseButton: .left)
             drag?.post(tap: .cghidEventTap)
         }
 
@@ -115,17 +123,50 @@ actor InputController: InputControlling {
 
     // MARK: - Type Text (native CGEvent keystrokes)
 
-    func typeText(_ text: String, tapX: Int? = nil, tapY: Int? = nil) async throws -> String {
-        if let x = tapX, let y = tapY {
-            _ = try await tap(x: x, y: y)
+    func typeText(_ text: String, tapX: Int? = nil, tapY: Int? = nil,
+                  submit: Bool = false) async throws -> String {
+        if let posX = tapX, let posY = tapY {
+            _ = try await tap(x: posX, y: posY)
             try await Task.sleep(nanoseconds: Constants.pageSwipeDelay)
         }
 
         let session = await beginSession()
         postKeystrokes(text)
+        if submit {
+            // Search fields need an explicit Return; typing alone leaves the query
+            // sitting in the box and no results ever appear.
+            Thread.sleep(forTimeInterval: 0.25)
+            postKeyCode(Self.keyCode(for: "return") ?? 36)
+        }
         await endSession(session)
 
-        return "Typed: \(text)"
+        return submit ? "Typed: \(text) + Return" : "Typed: \(text)"
+    }
+
+    /// Press a single named key (return, escape, delete, tab, space, arrows).
+    func pressKey(_ name: String) async throws -> String {
+        guard let code = Self.keyCode(for: name) else {
+            throw InputError.menuNotFound("Unknown key: \(name)")
+        }
+        let session = await beginSession()
+        postKeyCode(code)
+        await endSession(session)
+        return "Pressed: \(name)"
+    }
+
+    private static func keyCode(for name: String) -> CGKeyCode? {
+        switch name.lowercased() {
+        case "return", "enter", "search", "go": return 36
+        case "tab": return 48
+        case "space": return 49
+        case "delete", "backspace": return 51
+        case "escape", "esc": return 53
+        case "left": return 123
+        case "right": return 124
+        case "down": return 125
+        case "up": return 126
+        default: return nil
+        }
     }
 
     // MARK: - View Menu Actions (home, app switcher, spotlight)
@@ -424,3 +465,5 @@ private func buildLayoutKeyMap() -> [Character: KeyStroke] {
     map[" "] = KeyStroke(code: 49, flags: [])
     return map
 }
+
+// swiftlint:enable identifier_name type_body_length

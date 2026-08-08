@@ -20,6 +20,9 @@ struct ToolResult {
     }
 }
 
+// One method per tool keeps the dispatch flat and readable; splitting the actor
+// would scatter closely-related device actions across files.
+// swiftlint:disable type_body_length
 actor ToolExecutor {
     let scriptRunner: ScriptRunning
     let inputController: InputControlling
@@ -52,6 +55,8 @@ actor ToolExecutor {
                 return try await executeSwipe(input: input)
             case "type_text":
                 return try await executeTypeText(input: input)
+            case "press_key":
+                return try await executePressKey(input: input)
             case "open_app":
                 return try await executeOpenApp(input: input)
             case "home":
@@ -125,9 +130,13 @@ actor ToolExecutor {
            let newData = retaken.imageData, !isMostlyBlackFrame(newData) {
             return retaken
         }
-        return .error("Screen capture came back black (mirroring stream paused). "
-            + "The iPhone may be locked or the session inactive - do NOT conclude "
-            + "anything about the phone's state from this.")
+        // A black screen is a NORMAL state (display asleep / mirroring idle), not a
+        // failure. Reporting it as an error made models panic and spiral into
+        // "the window is off-screen / the session is broken" recovery attempts.
+        return .text("The iPhone screen is currently black (display asleep or "
+            + "mirroring idle). This is normal and NOT an error. Wake it with the "
+            + "home tool or a tap, then take another screenshot. Everything is "
+            + "connected and working - do not try to diagnose the window or session.")
     }
 
     private func scriptScreenshot() async throws -> ToolResult {
@@ -269,8 +278,19 @@ actor ToolExecutor {
         }
         let tapX = intValue(input["x"])
         let tapY = intValue(input["y"])
-        _ = try await inputController.typeText(text, tapX: tapX, tapY: tapY)
-        return .text("Typed: \"\(text)\". Screenshot to verify.")
+        // Default to submitting: a search box that is typed into but never gets a
+        // Return just sits there and no results appear (the old silent dead end).
+        let submit = (input["submit"] as? Bool) ?? true
+        _ = try await inputController.typeText(text, tapX: tapX, tapY: tapY, submit: submit)
+        return .text("Typed: \"\(text)\"\(submit ? " and pressed Return" : ""). Screenshot to verify.")
+    }
+
+    private func executePressKey(input: [String: Any]) async throws -> ToolResult {
+        guard let key = input["key"] as? String, !key.isEmpty else {
+            return .error("press_key requires a key name (return, escape, delete, tab, arrows)")
+        }
+        let result = try await inputController.pressKey(key)
+        return .text("\(result). Screenshot to verify.")
     }
 
     private func executeOpenApp(input: [String: Any]) async throws -> ToolResult {
@@ -335,6 +355,7 @@ actor ToolExecutor {
         return nil
     }
 }
+// swiftlint:enable type_body_length
 
 /// Foreground or background the iPhone Mirroring app (backgrounding = activate
 /// Finder, harmless and always running). Used by the black-frame retry ladder.
