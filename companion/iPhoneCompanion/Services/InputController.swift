@@ -241,7 +241,12 @@ actor InputController: InputControlling {
     // payload from keyboardSetUnicodeString, so typing must resolve each character
     // to the real key + modifiers on the active layout and post keycode events.
     // (The previous unicode approach silently typed nothing into the phone.)
-    private static let keyMap: [Character: KeyStroke] = buildLayoutKeyMap()
+    // TIS/keyboard-layout APIs assert they run on the main thread; this actor's
+    // executor is a background thread, so hop to main to build the map (it crashed
+    // with a dispatch_assert_queue SIGTRAP otherwise).
+    private static let keyMap: [Character: KeyStroke] = {
+        Thread.isMainThread ? buildLayoutKeyMap() : DispatchQueue.main.sync(execute: buildLayoutKeyMap)
+    }()
 
     private func postKeystrokes(_ text: String) {
         let src = CGEventSource(stateID: .hidSystemState)
