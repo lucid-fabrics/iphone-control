@@ -35,6 +35,8 @@ actor ToolExecutor {
         self.inputController = inputController
     }
 
+    // Flat tool-name dispatch; one case per tool is clearer than any indirection.
+    // swiftlint:disable:next cyclomatic_complexity
     func execute(toolName: String, input: [String: Any]) async -> ToolResult {
         do {
             switch toolName {
@@ -86,10 +88,33 @@ actor ToolExecutor {
         // Prefer screenshot.sh: it crops to the alpha-scanned content rect, so the
         // model sees the exact screen (the native path's rough margins cut ~36px
         // off the top, hiding content like the first search result row).
-        if let result = try? await scriptScreenshot() { return result }
-        // Fallback: native capture with approximate margins.
-        if let result = nativeScreenshot() { return result }
-        return .error("Screenshot failed. Check Screen Recording permission.")
+        let capture = (try? await scriptScreenshot()) ?? nativeScreenshot()
+        guard let result = capture else {
+            return .error("Screenshot failed. Check Screen Recording permission.")
+        }
+
+        // Mirroring's stream intermittently yields black frames when its window is
+        // not active. A black image sent to the model triggers hallucinations
+        // ("window off-screen", "app unavailable"), so activate the mirror, retake
+        // once, and error out rather than ever forwarding a black frame.
+        guard let data = result.imageData, isMostlyBlackFrame(data) else { return result }
+
+        await activateMirroring()
+        try? await Task.sleep(nanoseconds: 700_000_000)
+        let retake = (try? await scriptScreenshot()) ?? nativeScreenshot()
+        if let retaken = retake, let newData = retaken.imageData, !isMostlyBlackFrame(newData) {
+            return retaken
+        }
+        return .error("Screen capture came back black (mirroring stream paused). "
+            + "The iPhone may be locked or the session inactive - do NOT conclude "
+            + "anything about the phone's state from this.")
+    }
+
+    @MainActor
+    private func activateMirroring() {
+        NSWorkspace.shared.runningApplications
+            .first { $0.bundleIdentifier == Constants.iphoneMirroringBundleId }?
+            .activate(options: .activateIgnoringOtherApps)
     }
 
     private func scriptScreenshot() async throws -> ToolResult {
@@ -128,14 +153,21 @@ actor ToolExecutor {
         var rect = CGRect.zero
         CGRectMakeWithDictionaryRepresentation(boundsDict as CFDictionary, &rect)
 
-        let mx = Int(rect.width * 0.06)
-        let mt = Int(rect.height * 0.09)
-        let mb = Int(rect.height * 0.04)
+        let marginX = Int(rect.width * 0.06)
+        let marginTop = Int(rect.height * 0.09)
+        let marginBottom = Int(rect.height * 0.04)
 
-        let json = """
-        {"window_x":\(Int(rect.minX)),"window_y":\(Int(rect.minY)),"window_width":\(Int(rect.width)),"window_height":\(Int(rect.height)),"content_x":\(Int(rect.minX) + mx),"content_y":\(Int(rect.minY) + mt),"content_width":\(Int(rect.width) - mx * 2),"content_height":\(Int(rect.height) - mt - mb)}
-        """
-        return .text(json)
+        let fields: [String] = [
+            "\"window_x\":\(Int(rect.minX))",
+            "\"window_y\":\(Int(rect.minY))",
+            "\"window_width\":\(Int(rect.width))",
+            "\"window_height\":\(Int(rect.height))",
+            "\"content_x\":\(Int(rect.minX) + marginX)",
+            "\"content_y\":\(Int(rect.minY) + marginTop)",
+            "\"content_width\":\(Int(rect.width) - marginX * 2)",
+            "\"content_height\":\(Int(rect.height) - marginTop - marginBottom)"
+        ]
+        return .text("{" + fields.joined(separator: ",") + "}")
     }
 
     private func nativeScreenshot() -> ToolResult? {
@@ -158,13 +190,13 @@ actor ToolExecutor {
         // CGWindowListCreateImage returns PIXELS (2x on Retina) while rect is points;
         // cropping(to:) works in pixels, so scale the margins by the measured ratio.
         let pixelScale = rect.width > 0 ? CGFloat(cgImage.width) / rect.width : 1
-        let mx = Int(rect.width * 0.06 * pixelScale)
-        let mt = Int(rect.height * 0.09 * pixelScale)
-        let mb = Int(rect.height * 0.04 * pixelScale)
+        let marginX = Int(rect.width * 0.06 * pixelScale)
+        let marginTop = Int(rect.height * 0.09 * pixelScale)
+        let marginBottom = Int(rect.height * 0.04 * pixelScale)
         let cropRect = CGRect(
-            x: mx, y: mt,
-            width: cgImage.width - mx * 2,
-            height: cgImage.height - mt - mb
+            x: marginX, y: marginTop,
+            width: cgImage.width - marginX * 2,
+            height: cgImage.height - marginTop - marginBottom
         )
 
         guard let cropped = cgImage.cropping(to: cropRect) else { return nil }
@@ -179,12 +211,12 @@ actor ToolExecutor {
     }
 
     private func executeTap(input: [String: Any]) async throws -> ToolResult {
-        guard let x = intValue(input["x"]),
-              let y = intValue(input["y"]) else {
+        guard let tapX = intValue(input["x"]),
+              let tapY = intValue(input["y"]) else {
             return .error("tap requires x and y coordinates")
         }
-        _ = try await inputController.tap(x: x, y: y)
-        return .text("Tapped at (\(x), \(y)). Screenshot to verify.")
+        _ = try await inputController.tap(x: tapX, y: tapY)
+        return .text("Tapped at (\(tapX), \(tapY)). Screenshot to verify.")
     }
 
     private func executeTapText(input: [String: Any]) async throws -> ToolResult {
@@ -206,15 +238,16 @@ actor ToolExecutor {
     }
 
     private func executeSwipe(input: [String: Any]) async throws -> ToolResult {
-        guard let x1 = intValue(input["x1"]),
-              let y1 = intValue(input["y1"]),
-              let x2 = intValue(input["x2"]),
-              let y2 = intValue(input["y2"]) else {
+        guard let startX = intValue(input["x1"]),
+              let startY = intValue(input["y1"]),
+              let endX = intValue(input["x2"]),
+              let endY = intValue(input["y2"]) else {
             return .error("swipe requires x1, y1, x2, y2 coordinates")
         }
         let duration = intValue(input["duration_ms"]) ?? Constants.defaultSwipeDuration
-        _ = try await inputController.swipe(x1: x1, y1: y1, x2: x2, y2: y2, durationMs: duration)
-        return .text("Swiped from (\(x1),\(y1)) to (\(x2),\(y2)). Screenshot to verify.")
+        _ = try await inputController.swipe(
+            x1: startX, y1: startY, x2: endX, y2: endY, durationMs: duration)
+        return .text("Swiped from (\(startX),\(startY)) to (\(endX),\(endY)). Screenshot to verify.")
     }
 
     private func executeTypeText(input: [String: Any]) async throws -> ToolResult {
@@ -238,7 +271,8 @@ actor ToolExecutor {
             args.append("--spotlight")
         }
 
-        let result = try await scriptRunner.run(script: "open-app.sh", args: args, timeout: Constants.defaultScriptTimeout)
+        let result = try await scriptRunner.run(
+            script: "open-app.sh", args: args, timeout: Constants.defaultScriptTimeout)
         let output = result.stdout.isEmpty ? "Opened \(name)" : result.stdout
         return .text("\(output). Screenshot needed to check for overlay prompts.")
     }
@@ -275,16 +309,41 @@ actor ToolExecutor {
     // MARK: - Helpers
 
     private func intValue(_ value: Any?) -> Int? {
-        if let n = value as? Int { return n }
-        if let n = value as? Double { return Int(n) }
-        if let s = value as? String { return Int(s) }
+        if let intVal = value as? Int { return intVal }
+        if let dblVal = value as? Double { return Int(dblVal) }
+        if let strVal = value as? String { return Int(strVal) }
         return nil
     }
 
     private func numberValue(_ value: Any?) -> String? {
-        if let n = value as? Int { return String(n) }
-        if let n = value as? Double { return String(Int(n)) }
-        if let s = value as? String { return s }
+        if let intVal = value as? Int { return String(intVal) }
+        if let dblVal = value as? Double { return String(Int(dblVal)) }
+        if let strVal = value as? String { return strVal }
         return nil
     }
+}
+
+/// Cheap sampled-brightness check (~500 pixels) for an all-black frame.
+private func isMostlyBlackFrame(_ data: Data) -> Bool {
+    guard let rep = NSBitmapImageRep(data: data) else { return false }
+    let width = rep.pixelsWide
+    let height = rep.pixelsHigh
+    guard width > 0, height > 0 else { return true }
+    let step = max(1, min(width, height) / 22)
+    var total = 0.0
+    var count = 0
+    var rowY = 0
+    while rowY < height {
+        var colX = 0
+        while colX < width {
+            if let color = rep.colorAt(x: colX, y: rowY)?.usingColorSpace(.deviceRGB) {
+                total += Double(max(color.redComponent, color.greenComponent, color.blueComponent))
+                count += 1
+            }
+            colX += step
+        }
+        rowY += step
+    }
+    guard count > 0 else { return true }
+    return total / Double(count) < 0.04
 }
