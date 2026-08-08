@@ -283,18 +283,39 @@ keycode_for() {
 # Emit JXA for a key press with optional modifiers.
 # Usage: jxa_key_body <keycode> <flags_expr>
 # flags_expr is a JXA expression, e.g. "0" or "$.kCGEventFlagMaskCommand".
+# Mirroring only honors modified combos when each modifier arrives as its own
+# PHYSICAL key event around the letter, like hardware (Cmd down, V, Cmd up).
+# Flags set on the letter alone are silently dropped by the phone.
 jxa_key_body() {
     local code="$1" flags="$2"
     cat << EOF
 {
 const kSrc = \$.CGEventSourceCreate(\$.kCGEventSourceStateHIDSystemState);
+const kFlags = ${flags};
+const kMods = [
+    [\$.kCGEventFlagMaskCommand, 55],
+    [\$.kCGEventFlagMaskShift, 56],
+    [\$.kCGEventFlagMaskAlternate, 58],
+    [\$.kCGEventFlagMaskControl, 59]
+].filter(function(m) { return (kFlags & m[0]) !== 0; });
+kMods.forEach(function(m) {
+    const md = \$.CGEventCreateKeyboardEvent(kSrc, m[1], true);
+    \$.CGEventSetFlags(md, kFlags);
+    \$.CGEventPost(\$.kCGHIDEventTap, md);
+    \$.NSThread.sleepForTimeInterval(${KEY_DELAY});
+});
 const kDn = \$.CGEventCreateKeyboardEvent(kSrc, ${code}, true);
 const kUp = \$.CGEventCreateKeyboardEvent(kSrc, ${code}, false);
-\$.CGEventSetFlags(kDn, ${flags});
-\$.CGEventSetFlags(kUp, ${flags});
+\$.CGEventSetFlags(kDn, kFlags);
+\$.CGEventSetFlags(kUp, kFlags);
 \$.CGEventPost(\$.kCGHIDEventTap, kDn);
 \$.NSThread.sleepForTimeInterval(${KEY_DELAY});
 \$.CGEventPost(\$.kCGHIDEventTap, kUp);
+kMods.slice().reverse().forEach(function(m) {
+    const mu = \$.CGEventCreateKeyboardEvent(kSrc, m[1], false);
+    \$.CGEventPost(\$.kCGHIDEventTap, mu);
+    \$.NSThread.sleepForTimeInterval(${KEY_DELAY});
+});
 }
 EOF
 }

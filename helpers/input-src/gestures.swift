@@ -25,7 +25,24 @@ func postMouse(_ type: CGEventType, _ p: CGPoint, pressure: Double, clickState: 
     lastPoint = p
 }
 
+// Modifier keycodes: iPhone Mirroring only honors a modified combo when the
+// modifier arrives as its own PHYSICAL key event around the letter, exactly like
+// hardware (Cmd down, V down, V up, Cmd up). Setting .flags on the letter alone
+// is silently dropped by the phone (verified live: Cmd+A/Cmd+V arrived as bare
+// 'a'/'v' until wrapped).
+private let modifierKeys: [(CGEventFlags, CGKeyCode)] = [
+    (.maskCommand, 55), (.maskShift, 56), (.maskAlternate, 58), (.maskControl, 59)
+]
+
 func postKey(_ code: CGKeyCode, flags: CGEventFlags) {
+    let mods = modifierKeys.filter { flags.contains($0.0) }
+    for (_, modCode) in mods {
+        guard let modDn = CGEvent(keyboardEventSource: eventSource, virtualKey: modCode, keyDown: true)
+        else { continue }
+        modDn.flags = flags
+        modDn.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: Tune.keyDelay)
+    }
     guard let dn = CGEvent(keyboardEventSource: eventSource, virtualKey: code, keyDown: true),
           let up = CGEvent(keyboardEventSource: eventSource, virtualKey: code, keyDown: false)
     else { return }
@@ -34,6 +51,12 @@ func postKey(_ code: CGKeyCode, flags: CGEventFlags) {
     dn.post(tap: .cghidEventTap)
     Thread.sleep(forTimeInterval: Tune.keyDelay)
     up.post(tap: .cghidEventTap)
+    for (_, modCode) in mods.reversed() {
+        guard let modUp = CGEvent(keyboardEventSource: eventSource, virtualKey: modCode, keyDown: false)
+        else { continue }
+        modUp.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: Tune.keyDelay)
+    }
 }
 
 // MARK: - Gestures

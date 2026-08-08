@@ -29,6 +29,15 @@ if ! $force_swipe; then
             exit 0
         fi
     fi
+
+    # iOS usually labels the back control with the PREVIOUS page's title, not
+    # "Back", so the text match above misses it. The chevron itself always sits
+    # in the nav bar's top-left corner; tap that region directly (verified to
+    # pop a Settings subpage where the edge swipe below failed).
+    if "$SCRIPT_DIR/tap.sh" 30 70 > /dev/null 2>&1; then
+        echo "Back (tapped top-left chevron)"
+        exit 0
+    fi
 fi
 
 mid_y=$(( CONTENT_H / 2 ))
