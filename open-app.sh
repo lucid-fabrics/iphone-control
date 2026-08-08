@@ -42,10 +42,31 @@ se.keyCode(51);
 \$.NSThread.sleepForTimeInterval(0.15);
 se.keystroke(appName);
 \$.NSThread.sleepForTimeInterval(${SPOTLIGHT_SEARCH_DELAY});
-
-se.keyCode(36);
 " || { rm -f "$tmp_name"; return 1; }
     rm -f "$tmp_name"
+
+    # Open by tapping the app's own result ROW, never blind Return: Spotlight's
+    # top hit can be a web/video/game suggestion, which sent runs into YouTube,
+    # Safari and Apple Games. Rows sit below the search field (y > 160); the
+    # field's own echo of the query is excluded by that threshold.
+    local row
+    row=$("$SCRIPT_DIR/read.sh" 2>/dev/null | awk -v name="$app_name" '
+        BEGIN { lname = tolower(name) }
+        {
+            coord = $1
+            $1 = ""
+            sub(/^ +/, "")
+            if (tolower($0) == lname) {
+                split(coord, xy, ",")
+                if (xy[2] + 0 > 160) { print xy[1], xy[2]; exit }
+            }
+        }')
+    if [[ -z "$row" ]]; then
+        echo "Error: \"$app_name\" not found in Spotlight results - is it installed?" >&2
+        return 1
+    fi
+    # shellcheck disable=SC2086
+    "$SCRIPT_DIR/tap.sh" $row > /dev/null 2>&1 || return 1
     echo "Opened: $app_name (spotlight)"
 }
 

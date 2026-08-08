@@ -459,7 +459,8 @@ actor ToolExecutor {
         let result = try await scriptRunner.run(
             script: "open-app.sh", args: args, timeout: Constants.defaultScriptTimeout)
         let output = result.stdout.isEmpty ? "Opened \(name)" : result.stdout
-        return .text("\(output). Screenshot needed to check for overlay prompts.")
+        return .text("\(output). NOT yet verified - take a screenshot and CONFIRM the "
+            + "correct app is on screen before claiming it opened or doing anything else.")
     }
 
     private func executeHome() async throws -> ToolResult {
