@@ -155,7 +155,19 @@ t_wait_text() {
 t_long_press() {
     # Long-press an app icon -> iOS context menu -> Escape. Net phone state: unchanged.
     "$ROOT/screenshot.sh" "$TMP/lp-before.png" > /dev/null || return 1
-    "$ROOT/iphone-control.sh" press 306 555 800 > /dev/null 2>&1 || return 1
+    # Locate a real icon via OCR instead of assuming a fixed slot: home layouts
+    # drift, and pressing empty wallpaper shows no menu (previous hardcoded
+    # 306,555 target went stale). The label sits under the icon, so press ~34pt up.
+    local hit lx ly
+    hit=$("$ROOT/read.sh" --grep '^Settings$' 2>/dev/null | head -1)
+    if [[ -n "$hit" ]]; then
+        lx=$(echo "$hit" | awk -F'[, ]+' '{print $2}')
+        ly=$(echo "$hit" | awk -F'[, ]+' '{print $3}')
+        ly=$(( ly - 34 ))
+    else
+        lx=306; ly=555
+    fi
+    "$ROOT/iphone-control.sh" press "$lx" "$ly" 800 > /dev/null 2>&1 || return 1
     "$ROOT/wait.sh" still --timeout 4 > /dev/null 2>&1 || true
     # Capture rather than pipe: a pipe to grep -q closes early, SIGPIPEs read.sh,
     # and pipefail then reports a failure that never happened.
