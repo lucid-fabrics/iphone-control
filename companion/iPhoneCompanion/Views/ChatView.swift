@@ -20,7 +20,8 @@ struct ChatView: View {
                 },
                 onSettings: { showSettings = true },
                 onDock: { redock() },
-                onCopy: { copyTranscript() }
+                onCopy: { copyTranscript() },
+                debugMode: $conversation.debugMode
             )
             .zIndex(1)
 

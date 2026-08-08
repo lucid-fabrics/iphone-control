@@ -28,6 +28,12 @@ actor ToolExecutor {
     let scriptRunner: ScriptRunning
     let inputController: InputControlling
 
+    /// When on, tap and tap_text return the marked screenshot to the model so it
+    /// can see where its tap actually landed and self-diagnose misses.
+    private(set) var debugMode = false
+
+    func setDebugMode(_ enabled: Bool) { debugMode = enabled }
+
     init(scriptsPath: String = Constants.defaultScriptsPath) {
         let runner = ScriptRunner(scriptsPath: scriptsPath)
         self.scriptRunner = runner
@@ -254,8 +260,38 @@ actor ToolExecutor {
               let tapY = intValue(input["y"]) else {
             return .error("tap requires x and y coordinates")
         }
+        // Snapshot the screen the model was aiming at, marked with where the tap
+        // will land, so a miss can be SEEN instead of inferred.
+        let marked = await debugMark(normX: tapX, normY: tapY, note: "tap")
         _ = try await inputController.tap(x: tapX, y: tapY)
+        if debugMode, let marked {
+            return ToolResult(text: Self.markerPrompt(posX: tapX, posY: tapY),
+                              imageData: marked, isError: false)
+        }
         return .text("Tapped at (\(tapX), \(tapY)). Screenshot to verify.")
+    }
+
+    /// Write /tmp/iphone-companion-taps/<ts>-<note>.png: the screen as it was when
+    /// the tap was aimed, with a red crosshair at the target. Returns the image so
+    /// debug mode can show it to the model.
+    @discardableResult
+    private func debugMark(normX: Int, normY: Int, note: String) async -> Data? {
+        guard let bounds = try? await inputController.getContentBounds(),
+              let geo = WindowCapture.geometry(contentBounds: bounds),
+              let png = await WindowCapture.capturePNG(geo) else { return nil }
+        return WindowCapture.writeTapMarker(
+            normX: normX, normY: normY, png: png, note: note)
+    }
+
+    static func markerPrompt(posX: Int, posY: Int) -> String {
+        """
+        DEBUG MODE. This image is the screen as it was when you aimed, with a RED \
+        CROSSHAIR drawn at exactly where your tap landed: (\(posX), \(posY)) on the 0-1000 grid. \
+        Look at the crosshair and state plainly whether it sits ON the element you \
+        intended. If it is off, say which element it actually hit and in which \
+        direction/by how much you were wrong, then correct your coordinates. Report \
+        this assessment to the user in one short line before continuing.
+        """
     }
 
     private func executeTapText(input: [String: Any]) async throws -> ToolResult {
@@ -270,9 +306,33 @@ actor ToolExecutor {
         if (input["row_button"] as? Bool) == true {
             args.append("--row-right")
         }
+        // Capture BEFORE tapping so the marker lands on the screen the OCR matched.
+        let bounds = try? await inputController.getContentBounds()
+        var beforePNG: Data?
+        if let bounds, let geo = WindowCapture.geometry(contentBounds: bounds) {
+            beforePNG = await WindowCapture.capturePNG(geo)
+        }
         do {
-            _ = try await scriptRunner.run(
+            let result = try await scriptRunner.run(
                 script: "tap-text.sh", args: args, timeout: Constants.defaultScriptTimeout)
+            // The script reports content points; convert to the grid for the marker.
+            var markedImage: Data?
+            var markedX = 0, markedY = 0
+            if let bounds, let png = beforePNG,
+               let point = Self.firstPoint(in: result.stdout),
+               bounds.contentWidth > 0, bounds.contentHeight > 0 {
+                markedX = point.x * 1000 / bounds.contentWidth
+                markedY = point.y * 1000 / bounds.contentHeight
+                markedImage = WindowCapture.writeTapMarker(
+                    normX: markedX, normY: markedY, png: png, note: "tap_text-\(text)")
+            }
+            if debugMode, let markedImage {
+                return ToolResult(
+                    text: Self.markerPrompt(posX: markedX, posY: markedY)
+                        + " (this was tap_text \"\(text)\" - if the crosshair is on the "
+                        + "wrong element, the OCR matched different text than you meant)",
+                    imageData: markedImage, isError: false)
+            }
             // Deliberately NO coordinates in the result: the script echoes content
             // points and Mac screen coords, and models reused those numbers as
             // 0-1000 grid values, sending later taps to the wrong spot entirely.
@@ -282,6 +342,18 @@ actor ToolExecutor {
             // No OCR match: tell the model so it can retry different text or use tap.
             return .error("Could not find text \"\(text)\" on screen. Try different wording or use tap.")
         }
+    }
+
+    /// First "(x, y)" pair in script output, in content points.
+    private static func firstPoint(in text: String) -> (x: Int, y: Int)? {
+        guard let regex = try? NSRegularExpression(pattern: #"\((\d+), ?(\d+)\)"#),
+              let match = regex.firstMatch(
+                in: text, range: NSRange(text.startIndex..., in: text)),
+              let xRange = Range(match.range(at: 1), in: text),
+              let yRange = Range(match.range(at: 2), in: text),
+              let xVal = Int(text[xRange]), let yVal = Int(text[yRange])
+        else { return nil }
+        return (xVal, yVal)
     }
 
     /// Strip content-point / Mac-screen coordinates from script output. Models

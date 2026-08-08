@@ -92,6 +92,45 @@ enum WindowCapture {
         return screen?.backingScaleFactor ?? 2
     }
 
+    /// Debug: save the screen with a red marker at a 0-1000 grid point, so a tap's
+    /// real landing spot can be inspected on disk instead of inferred from what the
+    /// model claims. Files land in /tmp/iphone-companion-taps/.
+    @discardableResult
+    static func writeTapMarker(normX: Int, normY: Int, png: Data, note: String) -> Data? {
+        guard let source = CGImageSourceCreateWithData(png as CFData, nil),
+              let img = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        let width = img.width, height = img.height
+        guard let ctx = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.draw(img, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        // CGContext is bottom-left origin; the grid is top-down.
+        let posX = Double(normX) / 1000.0 * Double(width)
+        let posY = Double(height) - Double(normY) / 1000.0 * Double(height)
+        let radius = Double(min(width, height)) / 26.0
+        ctx.setStrokeColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        ctx.setLineWidth(max(2, radius / 5))
+        ctx.strokeEllipse(in: CGRect(x: posX - radius, y: posY - radius,
+                                     width: radius * 2, height: radius * 2))
+        ctx.move(to: CGPoint(x: posX - radius * 1.8, y: posY))
+        ctx.addLine(to: CGPoint(x: posX + radius * 1.8, y: posY))
+        ctx.move(to: CGPoint(x: posX, y: posY - radius * 1.8))
+        ctx.addLine(to: CGPoint(x: posX, y: posY + radius * 1.8))
+        ctx.strokePath()
+
+        guard let marked = ctx.makeImage(), let out = pngData(marked) else { return nil }
+        let dir = "/tmp/iphone-companion-taps"
+        try? FileManager.default.createDirectory(
+            atPath: dir, withIntermediateDirectories: true)
+        let stamp = Int(Date().timeIntervalSince1970 * 1000)
+        let safeNote = note.replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: " ", with: "_").prefix(40)
+        try? out.write(to: URL(fileURLWithPath: "\(dir)/\(stamp)-\(safeNote).png"))
+        return out
+    }
+
     private static func pngData(_ img: CGImage) -> Data? {
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(

@@ -9,6 +9,7 @@ struct ChatToolbarView: View {
     let onSettings: () -> Void
     let onDock: () -> Void
     let onCopy: () -> Void
+    @Binding var debugMode: Bool
 
     // Clears the single close button at top-left (miniaturize/zoom are hidden).
     private let leadingInset: CGFloat = 26
@@ -44,6 +45,22 @@ struct ChatToolbarView: View {
                 Spacer()
 
                 HStack(spacing: 2) {
+                    // Leftmost so the other buttons keep their positions.
+                    Button {
+                        debugMode.toggle()
+                    } label: {
+                        Image(systemName: debugMode ? "ladybug.fill" : "ladybug")
+                            .font(.system(size: 12, weight: .medium))
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(debugMode ? Theme.statusError : Theme.textSecondary)
+                    .help(debugMode
+                          ? "Debug mode ON: taps return a marked screenshot for the AI to check"
+                          : "Debug mode: show the AI where each tap landed")
+                    .accessibilityLabel("Toggle debug mode")
+
                     toolbarButton(icon: "rectangle.righthalf.inset.filled.arrow.right",
                                   help: "Dock (Cmd+D)", label: "Dock", action: onDock)
                         .keyboardShortcut("d", modifiers: .command)

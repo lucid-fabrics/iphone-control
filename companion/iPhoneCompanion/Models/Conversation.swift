@@ -23,6 +23,9 @@ class Conversation: ObservableObject {
     @AppStorage("ollamaModel") var ollamaModel: String = Constants.defaultOllamaModel
     @AppStorage("ollamaURL") var ollamaURL: String = Constants.defaultOllamaURL
     @AppStorage("scriptsPath") var scriptsPath: String = Constants.defaultScriptsPath
+    /// Debug mode: every tap returns a screenshot with a red crosshair at the exact
+    /// landing point, and the model is told to judge whether it hit the target.
+    @AppStorage("debugMode") var debugMode: Bool = false
 
     @Published var modelSupportsVision: Bool? // nil = unknown, checked on model change
 
@@ -73,6 +76,7 @@ class Conversation: ObservableObject {
             }
 
             let orchestrator = currentToolOrchestrator
+            await currentToolExecutor.setDebugMode(debugMode)
             let callbacks = ToolOrchestrator.LoopCallbacks(
                 createService: { [weak self] in
                     await self?.createServiceAsync()
