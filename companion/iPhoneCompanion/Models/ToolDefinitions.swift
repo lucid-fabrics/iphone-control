@@ -18,6 +18,14 @@ struct ToolDefinitions {
              ],
              required: ["x", "y"]),
 
+        tool("tap_text",
+             description: "Tap an on-screen element by its visible text label (found via OCR, no coordinates). PREFER this over tap for any labeled button, tab, link, or list item, e.g. 'Search', 'Get', 'Not Now', 'Continue'. Case-insensitive.",
+             properties: [
+                "text": prop("string", "The visible text to tap, e.g. 'Search' or 'Not Now'"),
+                "index": prop("number", "If several matches, tap the Nth from the top (default 1)")
+             ],
+             required: ["text"]),
+
         tool("swipe",
              description: "Swipe from (x1,y1) to (x2,y2). Coordinates are a 0-1000 grid (x: 0=left, 1000=right; y: 0=top, 1000=bottom), NOT pixels.",
              properties: [

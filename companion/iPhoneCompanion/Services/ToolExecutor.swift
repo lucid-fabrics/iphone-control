@@ -44,6 +44,8 @@ actor ToolExecutor {
                 return try await executeScreenshot()
             case "tap":
                 return try await executeTap(input: input)
+            case "tap_text":
+                return try await executeTapText(input: input)
             case "swipe":
                 return try await executeSwipe(input: input)
             case "type_text":
@@ -171,6 +173,24 @@ actor ToolExecutor {
         }
         _ = try await inputController.tap(x: x, y: y)
         return .text("Tapped at (\(x), \(y)). Screenshot to verify.")
+    }
+
+    private func executeTapText(input: [String: Any]) async throws -> ToolResult {
+        guard let text = input["text"] as? String, !text.isEmpty else {
+            return .error("tap_text requires a non-empty text parameter")
+        }
+        var args = [text]
+        if let index = numberValue(input["index"]) {
+            args.append(contentsOf: ["--index", index])
+        }
+        do {
+            let result = try await scriptRunner.run(
+                script: "tap-text.sh", args: args, timeout: Constants.defaultScriptTimeout)
+            return .text(result.stdout.isEmpty ? "Tapped text: \(text)" : result.stdout)
+        } catch {
+            // No OCR match: tell the model so it can retry different text or use tap.
+            return .error("Could not find text \"\(text)\" on screen. Try different wording or use tap.")
+        }
     }
 
     private func executeSwipe(input: [String: Any]) async throws -> ToolResult {

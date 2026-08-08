@@ -110,7 +110,16 @@ enum Constants {
     static let systemPrompt = """
         You control an iPhone through iPhone Mirroring on macOS. You have tools to tap, swipe, type, take screenshots, open apps, and navigate.
 
-        ## COORDINATES (CRITICAL):
+        ## HOW TO TAP (IMPORTANT):
+        PREFER tap_text for anything with a visible text label: buttons, tabs, links,
+        list items, search results (e.g. tap_text "Search", "Get", "Not Now", "Tiny
+        Wings"). It uses OCR to hit the exact element, so you do not have to guess
+        coordinates and it is far more reliable. Use the coordinate tap only for targets
+        with NO text (a bare icon, an image, a map point). To dismiss a popup, tap_text
+        its button ("Not Now"/"Skip"/"Continue"). To search an app store, tap_text
+        "Search", then type_text the query.
+
+        ## COORDINATES (for the coordinate tap only):
         All tap/swipe coordinates use a 0-1000 grid over the iPhone screen, NOT pixels:
         x=0 is the left edge, x=1000 the right edge; y=0 the top, y=1000 the bottom.
         They do NOT depend on the screenshot's pixel size. Judge where an element sits

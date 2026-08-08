@@ -171,11 +171,11 @@ struct MessageBubbleView: View {
         )
     }
 
-    // swiftlint:disable:next cyclomatic_complexity
     private func toolIcon(_ name: String) -> String {
         switch name {
         case "screenshot": return "camera"
         case "tap": return "hand.tap"
+        case "tap_text": return "text.viewfinder"
         case "swipe": return "hand.draw"
         case "type_text": return "keyboard"
         case "open_app": return "app"
@@ -189,11 +189,11 @@ struct MessageBubbleView: View {
         }
     }
 
-    // swiftlint:disable:next cyclomatic_complexity
     private func toolDisplayName(_ name: String) -> String {
         switch name {
         case "screenshot": return "Capturing screen..."
         case "tap": return "Tapping..."
+        case "tap_text": return "Tapping text..."
         case "swipe": return "Swiping..."
         case "type_text": return "Typing text..."
         case "open_app": return "Opening app..."
