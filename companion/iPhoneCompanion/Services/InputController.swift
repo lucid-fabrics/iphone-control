@@ -180,11 +180,21 @@ actor InputController: InputControlling {
     // MARK: - Content Bounds
 
     func getContentBounds() async throws -> ContentBounds {
-        // Use native CGWindow API - no child process, no TCC inheritance issues
+        // Prefer find-window.sh: it alpha-scans the exact content rect (measured
+        // 360x780 vs 332x719 from the rough native margins, ~36px off at the top),
+        // which skewed both what the model saw and where normalized taps landed.
+        // The app holds its own TCC grants now, so the child process is fine.
+        if let bounds = try? await scriptContentBounds() {
+            return bounds
+        }
+        // Fallback: native CGWindow with approximate percentage bezels.
         if let bounds = nativeContentBounds() {
             return bounds
         }
-        // Fallback: shell script (works when Terminal has Screen Recording permission)
+        throw InputError.windowNotFound
+    }
+
+    private func scriptContentBounds() async throws -> ContentBounds {
         let result = try await scriptRunner.run(script: "find-window.sh")
         let json = result.stdout
         guard let cx = parseIntField(json, field: "content_x"),

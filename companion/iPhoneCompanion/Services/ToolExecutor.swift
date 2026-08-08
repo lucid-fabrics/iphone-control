@@ -73,19 +73,31 @@ actor ToolExecutor {
     // MARK: - Individual Tool Methods
 
     private func executeFindWindow() async throws -> ToolResult {
+        // Script first: alpha-scanned bounds, not the native rough-margin estimate.
+        if let result = try? await scriptRunner.run(script: "find-window.sh"),
+           !result.stdout.isEmpty {
+            return .text(result.stdout)
+        }
         if let result = nativeFindWindow() { return result }
-        let result = try await scriptRunner.run(script: "find-window.sh")
-        return .text(result.stdout)
+        throw InputError.windowNotFound
     }
 
     private func executeScreenshot() async throws -> ToolResult {
+        // Prefer screenshot.sh: it crops to the alpha-scanned content rect, so the
+        // model sees the exact screen (the native path's rough margins cut ~36px
+        // off the top, hiding content like the first search result row).
+        if let result = try? await scriptScreenshot() { return result }
+        // Fallback: native capture with approximate margins.
         if let result = nativeScreenshot() { return result }
-        // Fallback: shell script
+        return .error("Screenshot failed. Check Screen Recording permission.")
+    }
+
+    private func scriptScreenshot() async throws -> ToolResult {
         let tmpPath = "/tmp/iphone-companion-\(Int(Date().timeIntervalSince1970 * 1000)).png"
         let result = try await scriptRunner.run(script: "screenshot.sh", args: [tmpPath])
         let outputPath = result.stdout.isEmpty ? tmpPath : result.stdout
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: outputPath)) else {
-            return .error("Screenshot captured but file not readable")
+            throw InputError.windowNotFound
         }
         try? FileManager.default.removeItem(atPath: outputPath)
         return .image(data)
