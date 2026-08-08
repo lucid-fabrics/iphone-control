@@ -198,7 +198,9 @@ actor ToolExecutor {
     // failure aborts with a report of exactly which step broke and why, plus
     // what the screen shows now, so the model can re-plan from real state.
     // Sequential step runner; the branch-per-outcome shape is the whole point.
-    // swiftlint:disable:next cyclomatic_complexity
+    // (superfluous_disable_command is included because SwiftLint's verdict on this
+    // function flip-flops around the 10-branch threshold between edits.)
+    // swiftlint:disable:next cyclomatic_complexity superfluous_disable_command
     private func executeRunSteps(input: [String: Any]) async -> ToolResult {
         guard let steps = input["steps"] as? [[String: Any]], !steps.isEmpty else {
             return .error("run_steps requires a non-empty steps array")
@@ -356,45 +358,91 @@ actor ToolExecutor {
               let rawY = intValue(input["y"]) else {
             return .error("tap requires x and y coordinates")
         }
-        // Snap to the nearest OCR'd element when one is within a button's radius.
-        // Models compute coordinates from an assumed layout (an evenly spaced
-        // keypad, say) instead of querying read, and land on the neighbouring
-        // control: 47x89 was typed as 88750 because columns were assumed at
-        // 95/190/288/385 when they really sat at 147/381/614/842.
-        let snap = await snapToElement(normX: rawX, normY: rawY)
-        let tapX = snap?.posX ?? rawX
-        let tapY = snap?.posY ?? rawY
+        let force = (input["force"] as? Bool) == true
+
+        // Every tap must land on a DETECTED element (OCR text or button shape):
+        // model-estimated coordinates were the source of every remaining miss.
+        // The nearest element within reach becomes the true target; with nothing
+        // nearby the tap is refused unless the model explicitly forces it.
+        let (target, targetDistance) = await nearestDetected(normX: rawX, normY: rawY)
+
+        let tapX: Int, tapY: Int
+        var note: String
+        if let target, targetDistance <= 90 {
+            tapX = target.posX
+            tapY = target.posY
+            note = " Landed on \"\(target.label)\", the detected element at that spot."
+        } else if force {
+            tapX = rawX
+            tapY = rawY
+            note = " Forced raw tap (no detected element there)."
+        } else {
+            return .error("No detected element near (\(rawX), \(rawY)). Call read and "
+                + "use tap_element, or pass force:true only for deliberately empty space.")
+        }
 
         // Snapshot the screen the model was aiming at, marked with where the tap
         // will land, so a miss can be SEEN instead of inferred.
         let marked = await debugMark(normX: tapX, normY: tapY, note: "tap")
         _ = try await inputController.tap(x: tapX, y: tapY)
 
-        let snapNote: String
-        if let snap {
-            snapNote = " Nudged onto \"\(snap.label)\" at (\(snap.posX), \(snap.posY))."
-        } else if let near = await nearestElement(normX: rawX, normY: rawY), near.distance <= 150 {
-            // Advise, never move: the target may be an unlabeled control (a back
-            // chevron, a search field) that simply sits near some text.
-            snapNote = " Nearest labelled element is \"\(near.target.label)\" at"
-                + " (\(near.target.posX), \(near.target.posY)). If you meant that, use those"
-                + " exact coordinates from read; if you meant an unlabelled control,"
-                + " check the screenshot before retrying."
-        } else {
-            snapNote = ""
+        note += await expectNote(input) {
+            _ = try? await self.inputController.tap(x: tapX, y: tapY)
         }
+
         if debugMode, let marked {
             let verdict = lastStaleVerdict.map { "\n\n" + $0 } ?? ""
             return ToolResult(
-                text: Self.markerPrompt(posX: tapX, posY: tapY) + snapNote + verdict,
+                text: Self.markerPrompt(posX: tapX, posY: tapY) + note + verdict,
                 imageData: marked, isError: false)
         }
-        return .text("Tapped at (\(tapX), \(tapY)).\(snapNote) Screenshot to verify.")
+        return .text("Tapped at (\(tapX), \(tapY)).\(note)")
     }
 
-    // Half a small control on the 0-1000 grid: corrects a jitter-level miss but
-    // can never reach a neighbouring element.
-    static let snapRadius = 45.0
+    /// Nearest detected element - OCR text OR button shape - to a point.
+    private func nearestDetected(normX: Int, normY: Int) async -> (SnapTarget?, Double) {
+        var target: SnapTarget?
+        var targetDistance = Double.greatestFiniteMagnitude
+        if let near = await nearestElement(normX: normX, normY: normY) {
+            target = near.target
+            targetDistance = near.distance
+        }
+        if let bounds = try? await inputController.getContentBounds(),
+           let geo = WindowCapture.geometry(contentBounds: bounds),
+           let png = await WindowCapture.capturePNG(geo) {
+            for shape in WindowCapture.detectButtons(png: png) {
+                let deltaX = Double(shape.x - normX)
+                let deltaY = Double(shape.y - normY)
+                let distance = (deltaX * deltaX + deltaY * deltaY).squareRoot()
+                if distance < targetDistance {
+                    target = SnapTarget(posX: shape.x, posY: shape.y, label: "(button)")
+                    targetDistance = distance
+                }
+            }
+        }
+        return (target, targetDistance)
+    }
+
+    /// Wait briefly for expected text to appear after an action (effect check).
+    private func confirmExpected(_ text: String) async -> Bool {
+        (try? await scriptRunner.run(
+            script: "wait.sh", args: ["text", text, "--timeout", "6"],
+            timeout: 15)) != nil
+    }
+
+    /// Shared effect check with one retry; returns a note for the tool result.
+    private func expectNote(_ input: [String: Any],
+                            retry: () async -> Void) async -> String {
+        guard let expect = input["expect"] as? String, !expect.isEmpty else { return "" }
+        var confirmed = await confirmExpected(expect)
+        if !confirmed {
+            await retry()
+            confirmed = await confirmExpected(expect)
+        }
+        return confirmed
+            ? " Confirmed: \"\(expect)\" appeared."
+            : " WARNING: \"\(expect)\" did NOT appear after 2 attempts - re-check the screen."
+    }
 
     struct SnapTarget {
         let posX: Int
@@ -434,15 +482,6 @@ actor ToolExecutor {
         }
         guard let best, bestDistance > 0 else { return nil }
         return (best, bestDistance)
-    }
-
-    /// Snap ONLY a tiny error, well inside one control. A generous radius hijacked
-    /// taps aimed at UNLABELED controls (a back chevron dragged onto the status-bar
-    /// clock, a search field onto a nearby app name), far worse than the original miss.
-    private func snapToElement(normX: Int, normY: Int) async -> SnapTarget? {
-        guard let near = await nearestElement(normX: normX, normY: normY),
-              near.distance <= Self.snapRadius else { return nil }
-        return near.target
     }
 
     /// Write /tmp/iphone-companion-taps/<ts>-<note>.png: the screen as it was when
@@ -525,7 +564,11 @@ actor ToolExecutor {
             // Deliberately NO coordinates in the result: the script echoes content
             // points and Mac screen coords, and models reused those numbers as
             // 0-1000 grid values, sending later taps to the wrong spot entirely.
-            let suffix = (input["row_button"] as? Bool) == true ? " (its row's action button)" : ""
+            var suffix = (input["row_button"] as? Bool) == true ? " (its row's action button)" : ""
+            suffix += await expectNote(input) {
+                _ = try? await self.scriptRunner.run(
+                    script: "tap-text.sh", args: args, timeout: Constants.defaultScriptTimeout)
+            }
             return .text("Tapped \"\(text)\"\(suffix). Screenshot or read to verify.")
         } catch {
             // No OCR match: tell the model so it can retry different text or use tap.
@@ -640,15 +683,28 @@ actor ToolExecutor {
             lines.append("[\(elements.count)] \(label)")
         }
 
-        // Cache for tap_element, tied to the current frame so a stale ID cannot
-        // silently tap the wrong screen.
-        lastReadElements = elements
+        // Add unlabeled button-like shapes the text pass cannot see (operator
+        // keys, download clouds, chevrons), so NOTHING on screen requires the
+        // model to estimate a position. Shapes overlapping a text element are
+        // dropped - the text entry is the better handle.
         if let geo = WindowCapture.geometry(contentBounds: bounds),
            let png = await WindowCapture.capturePNG(geo) {
+            for shape in WindowCapture.detectButtons(png: png) {
+                let overlapsText = elements.contains {
+                    abs($0.posX - shape.x) < 70 && abs($0.posY - shape.y) < 55
+                }
+                guard !overlapsText else { continue }
+                elements.append(SnapTarget(posX: shape.x, posY: shape.y, label: "(button)"))
+                lines.append("[\(elements.count)] (unlabeled button)")
+            }
             lastReadFrame = frameSignature(png)
         } else {
             lastReadFrame = nil
         }
+
+        // Cache for tap_element, tied to the current frame so a stale ID cannot
+        // silently tap the wrong screen.
+        lastReadElements = elements
 
         return .text(elements.isEmpty
             ? "No matching text on screen."
@@ -678,7 +734,10 @@ actor ToolExecutor {
         }
         let element = lastReadElements[id - 1]
         _ = try await inputController.tap(x: element.posX, y: element.posY)
-        return .text("Tapped [\(id)] \"\(element.label)\". Screenshot or read to verify.")
+        let note = await expectNote(input) {
+            _ = try? await self.inputController.tap(x: element.posX, y: element.posY)
+        }
+        return .text("Tapped [\(id)] \"\(element.label)\".\(note)")
     }
 
     /// read.sh prints "x,y  text" in content points; convert coordinates to the

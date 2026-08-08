@@ -14,10 +14,12 @@ struct ToolDefinitions {
              properties: [:]),
 
         tool("tap",
-             description: "Tap at raw coordinates on a 0-1000 grid (x: 0=left, 1000=right; y: 0=top, 1000=bottom), NOT pixels. LAST RESORT ONLY: use it just for targets with NO text. If the target has any visible text, or sits in a dense grid like home-screen icons, call read first and tap the coordinates it returns - eyeballed positions are routinely off by 10-15% of the screen, which is a whole icon column, and land on the neighbouring app.",
+             description: "Tap near a point on the 0-1000 grid. The tap LANDS ON THE NEAREST DETECTED ELEMENT (text or button shape) - your coordinates only select which element, so rough positions are fine. If nothing is detected nearby the tap is REFUSED (call read + tap_element instead), unless force=true for deliberately empty space. Prefer tap_text/tap_element over this.",
              properties: [
                 "x": prop("number", "X on a 0-1000 grid (0=left edge, 1000=right edge)"),
-                "y": prop("number", "Y on a 0-1000 grid (0=top edge, 1000=bottom edge)")
+                "y": prop("number", "Y on a 0-1000 grid (0=top edge, 1000=bottom edge)"),
+                "force": prop("boolean", "Tap the raw point even with no element detected there (default false)"),
+                "expect": prop("string", "Optional: text that should appear after the tap; verified with one automatic retry")
              ],
              required: ["x", "y"]),
 
@@ -32,7 +34,8 @@ struct ToolDefinitions {
         tool("tap_element",
              description: "Tap an element by the [id] number from the most recent read. The most accurate single tap possible: you pick an ID, the app taps that element's measured center - no coordinates involved. Rejected if the screen changed since the read.",
              properties: [
-                "id": prop("number", "The [id] from the last read output")
+                "id": prop("number", "The [id] from the last read output"),
+                "expect": prop("string", "Optional: text that should appear after the tap; verified with one automatic retry")
              ],
              required: ["id"]),
 
@@ -48,6 +51,7 @@ struct ToolDefinitions {
              properties: [
                 "text": prop("string", "The visible text to tap, e.g. 'Search' or 'Not Now'"),
                 "index": prop("number", "If several matches, tap the Nth from the top (default 1)"),
+                "expect": prop("string", "Optional: text that should appear after the tap; verified with one automatic retry"),
                 "row_button": prop("boolean", "Tap the ACTION CONTROL on that row (GET / download cloud / OPEN) instead of the label. Use this to install or open an app from a search-results list: tap_text with the app's exact title and row_button=true. Far more reliable than guessing the button's coordinates.")
              ],
              required: ["text"]),
@@ -89,7 +93,7 @@ struct ToolDefinitions {
              required: ["direction"]),
 
         tool("read",
-             description: "OCR the screen: returns every visible text with its tap coordinates on the 0-1000 grid. The most precise way to locate a target - feed the coordinates straight into tap. Prefer this over guessing positions from the screenshot.",
+             description: "Scan the screen: returns every visible text AND every unlabeled button-like shape, each with an [id]. Tap any of them with tap_element(id). The most precise way to locate targets - includes controls with no text (operator keys, download clouds, chevrons).",
              properties: [
                 "filter": prop("string", "Optional regex to filter lines, e.g. 'Wi-?Fi'")
              ]),

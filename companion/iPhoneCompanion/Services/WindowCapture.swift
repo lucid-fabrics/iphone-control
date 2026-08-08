@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import ScreenCaptureKit
+import Vision
 
 /// One-shot in-process ScreenCaptureKit capture of the iPhone Mirroring window,
 /// cropped to the iOS content rect and resampled to point dimensions (1 image
@@ -134,6 +135,55 @@ enum WindowCapture {
                                atomically: true, encoding: .utf8)
         }
         return out
+    }
+
+    /// Button-like shapes (circles, rounded rects) on the screen, as 0-1000 grid
+    /// centers. Complements OCR: Vision's text pass never emits unlabeled controls
+    /// (the Calculator's multiply/divide keys, download clouds, chevrons), which
+    /// forced models to estimate positions - the source of every remaining miss.
+    static func detectButtons(png: Data) -> [(x: Int, y: Int)] {
+        guard let source = CGImageSourceCreateWithData(png as CFData, nil),
+              let img = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return [] }
+
+        var centers: [(x: Int, y: Int)] = []
+        // Two passes: light controls on dark UI and dark controls on light UI.
+        for darkOnLight in [false, true] {
+            let request = VNDetectContoursRequest()
+            request.contrastAdjustment = 1.5
+            request.detectsDarkOnLight = darkOnLight
+            request.maximumImageDimension = 1024
+            let handler = VNImageRequestHandler(cgImage: img)
+            guard (try? handler.perform([request])) != nil,
+                  let observation = request.results?.first else { continue }
+
+            var candidates: [VNContour] = []
+            for top in observation.topLevelContours {
+                candidates.append(top)
+                // A huge top-level contour is usually the screen border wrapping
+                // everything; its children are the actual controls.
+                if top.normalizedPath.boundingBox.width > 0.6 {
+                    candidates.append(contentsOf: top.childContours)
+                }
+            }
+            for contour in candidates {
+                let box = contour.normalizedPath.boundingBox
+                let gridW = box.width * 1000
+                let gridH = box.height * 1000
+                // Button-sized only: a Calculator key is ~215 grid units wide, a
+                // download cloud ~85, a chevron ~55.
+                guard gridW > 40, gridW < 320, gridH > 40, gridH < 320,
+                      gridW / max(gridH, 1) < 3, gridH / max(gridW, 1) < 3
+                else { continue }
+                let center = (x: Int(box.midX * 1000), y: Int((1 - box.midY) * 1000))
+                // Dedupe near-identical shapes across the two passes.
+                if centers.contains(where: { abs($0.x - center.x) < 50 && abs($0.y - center.y) < 50 }) {
+                    continue
+                }
+                centers.append(center)
+                if centers.count >= 30 { return centers }
+            }
+        }
+        return centers
     }
 
     private static func pngData(_ img: CGImage) -> Data? {
