@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -48,10 +49,13 @@ enum WindowCapture {
         else { return nil }
 
         let config = SCStreamConfiguration()
-        // Request 2x; the crop below measures the ACTUAL delivered scale from the
-        // image itself, so any real scale stays correct (mixed-DPI safe).
-        config.width = Int(geo.window.width) * 2
-        config.height = Int(geo.window.height) * 2
+        // Canvas must be the window's REAL backing size (points x that display's
+        // scale). A hardcoded 2x on a Retina display made SCK allocate a 4x-pixel
+        // canvas and draw the window unscaled in the top-left corner, so captures
+        // came out quarter-content with black padding.
+        let backingScale = displayScale(for: geo.window)
+        config.width = Int(geo.window.width * backingScale)
+        config.height = Int(geo.window.height * backingScale)
         config.showsCursor = false
         config.captureResolution = .best
 
@@ -72,6 +76,20 @@ enum WindowCapture {
         // affects them, and small UI text at 360px was too coarse for model vision.
         guard let cropped = raw.cropping(to: cropRect) else { return nil }
         return pngData(cropped)
+    }
+
+    /// Backing scale of the display containing the window. CGWindow bounds are
+    /// top-left global coords; NSScreen frames are bottom-left, so flip via the
+    /// PRIMARY screen's height before intersecting (same as the dock math).
+    private static func displayScale(for windowRect: CGRect) -> CGFloat {
+        guard let primary = NSScreen.screens.first else { return 2 }
+        let appKitRect = NSRect(
+            x: windowRect.minX,
+            y: primary.frame.height - windowRect.minY - windowRect.height,
+            width: windowRect.width, height: windowRect.height
+        )
+        let screen = NSScreen.screens.first { $0.frame.intersects(appKitRect) }
+        return screen?.backingScaleFactor ?? 2
     }
 
     private static func pngData(_ img: CGImage) -> Data? {
