@@ -24,7 +24,7 @@ class Conversation: ObservableObject {
     @AppStorage("ollamaURL") var ollamaURL: String = Constants.defaultOllamaURL
     @AppStorage("scriptsPath") var scriptsPath: String = Constants.defaultScriptsPath
 
-    @Published var modelSupportsVision: Bool? = nil // nil = unknown, checked on model change
+    @Published var modelSupportsVision: Bool? // nil = unknown, checked on model change
 
     private var apiMessages: [APIMessage] = []
     private var toolOrchestrator: ToolOrchestrator?
@@ -123,6 +123,16 @@ class Conversation: ObservableObject {
         apiMessages.removeAll()
     }
 
+    /// Whole conversation as plain text for the "Copy chat" action.
+    var transcript: String {
+        messages.compactMap { message -> String? in
+            let text = message.plainText
+            guard !text.isEmpty else { return nil }
+            let who = message.role == .user ? "You" : "Assistant"
+            return "\(who): \(text)"
+        }.joined(separator: "\n\n")
+    }
+
     func resetToolExecutor() {
         toolExecutor = nil
         toolOrchestrator = nil
@@ -177,7 +187,7 @@ class Conversation: ObservableObject {
     private func describeScreenshot(imageData: Data) async -> String {
         let apiKey = loadAPIKey(for: .openRouter)
         guard aiBackend == .openRouter, !apiKey.isEmpty, !openRouterVisionModel.isEmpty else {
-            return "[Screenshot taken — vision model not configured]"
+            return "[Screenshot taken - vision model not configured]"
         }
 
         guard let request = buildVisionRequest(imageData: imageData, apiKey: apiKey) else {
@@ -191,15 +201,16 @@ class Conversation: ObservableObject {
         let base64 = imageData.base64EncodedString()
         let visionMessages: [[String: Any]] = [
             ["role": "user", "content": [
+                // swiftlint:disable:next line_length
                 ["type": "text", "text": "Describe this iPhone screenshot in detail. List all visible UI elements, text, buttons, icons, and their positions. Be thorough but concise."],
-                ["type": "image_url", "image_url": ["url": "data:image/png;base64,\(base64)"]],
-            ] as [Any]],
+                ["type": "image_url", "image_url": ["url": "data:image/png;base64,\(base64)"]]
+            ] as [Any]]
         ]
 
         let body: [String: Any] = [
             "model": openRouterVisionModel,
             "max_tokens": Constants.visionMaxTokens,
-            "messages": visionMessages,
+            "messages": visionMessages
         ]
 
         guard let url = URL(string: Constants.openRouterAPIURL) else { return nil }
@@ -224,6 +235,7 @@ class Conversation: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
                 let errorBody = String(data: data, encoding: .utf8) ?? ""
+                // swiftlint:disable:next line_length
                 return "[Vision model error: HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0) \(errorBody.prefix(100))]"
             }
 
@@ -251,7 +263,7 @@ class Conversation: ObservableObject {
     private static let keychainKeys: [AIBackend: String] = [
         .claude: "claude-api-key",
         .openRouter: "openrouter-api-key",
-        .minimax: "minimax-api-key",
+        .minimax: "minimax-api-key"
     ]
 
     @Published private var cachedAPIKeys: [AIBackend: String] = [:]

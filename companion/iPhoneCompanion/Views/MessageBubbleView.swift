@@ -44,13 +44,26 @@ struct MessageBubbleView: View {
                 case .text(let text):
                     textBubble(text, isUser: message.role == .user)
                 case .image(let data):
-                    imageBubble(data)
+                    ScreenshotBubble(data: data)
                 case .toolCall(_, let name, let status):
                     toolStatusView(name: name, status: status)
                 }
             }
         }
         .padding(.horizontal, 14)
+        .contextMenu {
+            // The non-activating panel can't do native text selection, so offer an
+            // explicit copy instead.
+            if !message.plainText.isEmpty {
+                Button {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(message.plainText, forType: .string)
+                } label: {
+                    Label("Copy", systemImage: "doc.on.doc")
+                }
+            }
+        }
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear {
@@ -111,36 +124,6 @@ struct MessageBubbleView: View {
         }
     }
 
-    // MARK: - Image Bubble
-
-    @ViewBuilder
-    private func imageBubble(_ data: Data) -> some View {
-        if let nsImage = NSImage(data: data) {
-            VStack(alignment: .leading, spacing: 4) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: 260)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
-                            .strokeBorder(Theme.hairline, lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-
-                HStack(spacing: 4) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 8))
-                    Text("Screenshot")
-                        .font(Theme.Font.micro)
-                }
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.leading, 4)
-            }
-            .accessibilityLabel("Screenshot from the iPhone")
-        }
-    }
-
     // MARK: - Tool Status
 
     @ViewBuilder
@@ -188,6 +171,7 @@ struct MessageBubbleView: View {
         )
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func toolIcon(_ name: String) -> String {
         switch name {
         case "screenshot": return "camera"
@@ -205,6 +189,7 @@ struct MessageBubbleView: View {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func toolDisplayName(_ name: String) -> String {
         switch name {
         case "screenshot": return "Capturing screen..."
@@ -257,5 +242,55 @@ extension ToolStatus {
         case .completed: return Theme.statusLive
         case .failed: return Theme.statusError
         }
+    }
+}
+
+/// Screenshots are collapsed to a small chip by default: the verification loop
+/// takes one after every action, and rendering each full-size floods the chat.
+/// The image is still sent to the model; this only changes what the UI draws.
+/// Tap to expand any individual capture.
+private struct ScreenshotBubble: View {
+    let data: Data
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if expanded, let nsImage = NSImage(data: data) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: 260)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                            .strokeBorder(Theme.hairline, lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+            }
+
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 8))
+                    Text(expanded ? "Hide screenshot" : "Screenshot")
+                        .font(Theme.Font.micro)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 7, weight: .bold))
+                }
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(Theme.raised)
+                        .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 0.5))
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.leading, 4)
+        .accessibilityLabel("iPhone screenshot, collapsed")
     }
 }

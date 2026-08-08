@@ -19,7 +19,8 @@ struct ChatView: View {
                     }
                 },
                 onSettings: { showSettings = true },
-                onDock: { redock() }
+                onDock: { redock() },
+                onCopy: { copyTranscript() }
             )
             .zIndex(1)
 
@@ -203,5 +204,13 @@ struct ChatView: View {
 
     private func redock() {
         (NSApp.delegate as? AppDelegate)?.redock()
+    }
+
+    /// Copy the whole conversation to the clipboard. The non-activating panel can't
+    /// do native select-all, so this is the way to grab everything at once.
+    private func copyTranscript() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(conversation.transcript, forType: .string)
     }
 }

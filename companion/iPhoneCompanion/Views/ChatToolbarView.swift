@@ -8,6 +8,7 @@ struct ChatToolbarView: View {
     let onClear: () -> Void
     let onSettings: () -> Void
     let onDock: () -> Void
+    let onCopy: () -> Void
 
     // Clears the single close button at top-left (miniaturize/zoom are hidden).
     private let leadingInset: CGFloat = 26
@@ -46,6 +47,9 @@ struct ChatToolbarView: View {
                     toolbarButton(icon: "rectangle.righthalf.inset.filled.arrow.right",
                                   help: "Dock (Cmd+D)", label: "Dock", action: onDock)
                         .keyboardShortcut("d", modifiers: .command)
+
+                    toolbarButton(icon: "doc.on.doc", help: "Copy chat", label: "Copy chat", action: onCopy)
+                        .keyboardShortcut("c", modifiers: [.command, .shift])
 
                     toolbarButton(icon: "trash", help: "Clear chat", label: "Clear chat", action: onClear)
 

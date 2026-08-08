@@ -14,8 +14,8 @@ enum ContentBlock: Identifiable {
 
     var id: String {
         switch self {
-        case .text(let s): return "text-\(s.hashValue)"
-        case .image(let d): return "img-\(d.hashValue)"
+        case .text(let value): return "text-\(value.hashValue)"
+        case .image(let value): return "img-\(value.hashValue)"
         case .toolCall(let id, _, _): return "tool-\(id)"
         }
     }
@@ -46,5 +46,15 @@ struct ChatMessage: Identifiable {
 
     static func assistant(_ text: String) -> ChatMessage {
         ChatMessage(role: .assistant, content: [.text(text)])
+    }
+
+    /// The message's text blocks joined together (tool calls and images omitted).
+    /// Used for the Copy actions, since the non-activating panel can't do native
+    /// text selection.
+    var plainText: String {
+        content.compactMap { block in
+            if case .text(let text) = block { return text }
+            return nil
+        }.joined(separator: "\n")
     }
 }
