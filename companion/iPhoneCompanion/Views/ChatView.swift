@@ -13,11 +13,12 @@ struct ChatView: View {
             ChatToolbarView(
                 showSettings: showSettings,
                 onBack: { showSettings = false },
-                onClear: {
-                    withAnimation(.spring(response: 0.3)) {
-                        conversation.clearHistory()
-                    }
-                },
+                // Not wrapped in withAnimation: clearing mutates several
+                // @Published properties, and doing that inside SwiftUI's action
+                // dispatch re-entered ObservableObjectPublisher's lock and
+                // deadlocked the main thread (the window vanished and the app
+                // stopped responding entirely).
+                onClear: { conversation.clearHistory() },
                 onSettings: { showSettings = true },
                 onDock: { redock() },
                 onCopy: { copyTranscript() },

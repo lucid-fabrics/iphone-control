@@ -129,13 +129,19 @@ class Conversation: ObservableObject {
     func clearHistory() {
         // Stop any run first: a loop that keeps writing into the history we just
         // emptied is both confusing on screen and a source of stale indices.
-        if isProcessing {
-            currentTask?.cancel()
-            currentTask = nil
-            isProcessing = false
+        // Cancelling touches no @Published state, so it is safe to do inline.
+        currentTask?.cancel()
+        currentTask = nil
+
+        // Defer the published mutations to the next main-loop turn. Performing
+        // them inline, inside SwiftUI's action dispatch, re-entered Combine's
+        // ObservableObjectPublisher lock and deadlocked the main thread.
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.messages.removeAll()
+            self.apiMessages.removeAll()
+            self.isProcessing = false
         }
-        messages.removeAll()
-        apiMessages.removeAll()
     }
 
     /// Whole conversation as plain text for the "Copy chat" action.
@@ -216,7 +222,6 @@ class Conversation: ObservableObject {
         let base64 = imageData.base64EncodedString()
         let visionMessages: [[String: Any]] = [
             ["role": "user", "content": [
-                // swiftlint:disable:next line_length
                 ["type": "text", "text": "Describe this iPhone screenshot in detail. List all visible UI elements, text, buttons, icons, and their positions. Be thorough but concise."],
                 ["type": "image_url", "image_url": ["url": "data:image/png;base64,\(base64)"]]
             ] as [Any]]
@@ -250,7 +255,6 @@ class Conversation: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
                 let errorBody = String(data: data, encoding: .utf8) ?? ""
-                // swiftlint:disable:next line_length
                 return "[Vision model error: HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0) \(errorBody.prefix(100))]"
             }
 
