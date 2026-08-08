@@ -24,9 +24,10 @@ actor ToolOrchestrator {
 
     // Pre-existing single-function agent loop (stream, accumulate, execute, repeat);
     // splitting it would not make the control flow clearer.
-    // swiftlint:disable cyclomatic_complexity function_body_length line_length large_tuple
+    // swiftlint:disable cyclomatic_complexity function_body_length large_tuple
     func runAILoop(callbacks: LoopCallbacks) async {
         var iteration = 0
+        var nudgedTextOnlyTurn = false
 
         while iteration < Constants.maxToolIterations {
             guard !callbacks.isCancelled() else { return }
@@ -35,9 +36,12 @@ actor ToolOrchestrator {
             guard let service = await callbacks.createService() else {
                 let backend = callbacks.getBackend()
                 if backend == .claudeCode {
-                    callbacks.appendChatMessage(.assistant("Error: Claude Code credentials not found or expired. Run `claude` in terminal to authenticate."))
+                    callbacks.appendChatMessage(.assistant(
+                        "Error: Claude Code credentials not found or expired. "
+                        + "Run `claude` in terminal to authenticate."))
                 } else {
-                    callbacks.appendChatMessage(.assistant("Error: No API key configured. Tap the model bar to add your API key."))
+                    callbacks.appendChatMessage(.assistant(
+                        "Error: No API key configured. Tap the model bar to add your API key."))
                 }
                 return
             }
@@ -95,7 +99,23 @@ actor ToolOrchestrator {
                 // even with tool_calls present, so gating on stopReason == "tool_use"
                 // silently dropped valid tool calls and nothing happened.
                 if toolCalls.isEmpty {
-                    NSLog("[Companion] AI loop done: stopReason=%@, toolCalls=%d, textLen=%d", stopReason, toolCalls.count, assistantText.count)
+                    // A pure-text reply on the FIRST iteration means zero actions ran
+                    // this turn. Weak models hallucinate completion that way
+                    // ("installed!" with the phone untouched), so nudge once with a
+                    // corrective message; an honest conversational answer survives.
+                    if iteration == 1 && !nudgedTextOnlyTurn {
+                        nudgedTextOnlyTurn = true
+                        callbacks.appendApiMessage(APIMessage(role: "user", content: [.text(
+                            "SYSTEM CHECK: You called no tools this turn, so NOTHING was "
+                            + "done on the phone. If the request required device actions, "
+                            + "they have NOT happened - take a screenshot and do the work "
+                            + "now. Never claim completion without tool calls. If the "
+                            + "request was purely conversational, just answer it briefly."
+                        )]))
+                        continue
+                    }
+                    NSLog("[Companion] AI loop done: stopReason=%@, toolCalls=%d, textLen=%d",
+                          stopReason, toolCalls.count, assistantText.count)
                     return
                 }
                 NSLog("[Companion] Executing %d tool calls", toolCalls.count)
@@ -140,7 +160,8 @@ actor ToolOrchestrator {
                             let description = await callbacks.describeScreenshot(imageData)
                             resultContent.append(.text("[Screenshot description]: \(description)"))
                         } else {
-                            resultContent.append(.image(base64: imageData.base64EncodedString(), mediaType: "image/png"))
+                            resultContent.append(.image(
+                                base64: imageData.base64EncodedString(), mediaType: "image/png"))
                         }
                     }
                     if resultContent.isEmpty {
@@ -165,5 +186,5 @@ actor ToolOrchestrator {
 
         callbacks.appendChatMessage(.assistant("Stopped: too many tool call iterations."))
     }
-    // swiftlint:enable cyclomatic_complexity function_body_length line_length large_tuple
+    // swiftlint:enable cyclomatic_complexity function_body_length large_tuple
 }
