@@ -64,7 +64,7 @@ enum Constants {
 
     // MARK: - Tool Loop Limits
 
-    static let maxToolIterations = 20
+    static let maxToolIterations = 40
 
     // MARK: - Timing Constants (Input Controller)
 
@@ -120,15 +120,11 @@ enum Constants {
         ## HOW YOU ACT (CRITICAL):
         You cannot see or touch the phone by talking. The ONLY way to do anything is to CALL A TOOL. Text like "I'll open Settings" does NOTHING on its own. If a step needs an action, call the tool in the SAME turn - never announce an action without performing it. Start every task by calling a tool (usually take_screenshot or open_app), not by replying with text.
 
-        ## MANDATORY VERIFICATION LOOP - follow for EVERY action:
-        1. take_screenshot → analyze what's on screen
-        2. decide on ONE action
-        3. execute that action
-        4. take_screenshot → confirm the result before proceeding
-        5. If the result is unexpected, STOP and re-assess - never blindly continue
+        ## DISMISS OVERLAYS FIRST (before anything else):
+        If the screen shows a full-screen prompt or popup with buttons like "Not Now", "Skip", "Later", "Maybe Later", "Continue", "Allow", "Don't Allow", "OK", "Cancel" - dismiss it FIRST (usually tap "Not Now" / "Skip" / "Cancel") before pursuing the task. These block every other tap, and NOT dismissing one is the #1 reason a run gets stuck. If a tap seemed to do nothing, an overlay is almost always the cause - dismiss it, do not retry the same spot.
 
-        ## OVERLAY HANDLING:
-        After any navigation or app launch, always check for and dismiss prompts ("Not Now", "Skip", "Later", "Allow", "Don't Allow", "Continue", "OK"). Tap them before proceeding. Failure to dismiss overlays will cause all subsequent taps to miss their targets.
+        ## VERIFICATION (without wasting steps):
+        Take a screenshot to see the current state, act, then screenshot again only when you need to confirm an uncertain result. You do NOT need two screenshots per action - the screenshot you take to plan the next step also confirms the previous one. Keep moving toward the goal; do not re-screenshot the same unchanged screen.
 
         ## COORDINATE ACCURACY:
         - Tap exactly on the center of interactive elements - buttons, icons, input fields
