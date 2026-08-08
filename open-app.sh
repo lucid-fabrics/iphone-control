@@ -128,4 +128,16 @@ fi
 # Tap the app
 "$SCRIPT_DIR/tap.sh" "$app_x" "$app_y" > /dev/null
 
+# VERIFY: registry coordinates go stale whenever icons move, and a missed tap
+# used to still print success, leaving callers convinced an app was open while
+# the phone sat on the home screen. The home screen always shows the Search
+# pill, so if it is still there the launch did not happen - fall back and
+# invalidate the stale registry.
+"$SCRIPT_DIR/wait.sh" still --timeout 3 > /dev/null 2>&1 || true
+if "$SCRIPT_DIR/read.sh" --grep '^Search$' > /dev/null 2>&1; then
+    "$SCRIPT_DIR/registry.sh" invalidate > /dev/null 2>&1 || true
+    _open_via_spotlight
+    exit 0
+fi
+
 echo "Opened: $app_name (registry, page $app_page)"
