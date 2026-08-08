@@ -22,7 +22,7 @@ struct ToolResult {
 
 // One method per tool keeps the dispatch flat and readable; splitting the actor
 // would scatter closely-related device actions across files.
-// swiftlint:disable type_body_length
+// swiftlint:disable type_body_length file_length
 actor ToolExecutor {
     let scriptRunner: ScriptRunning
     let inputController: InputControlling
@@ -39,7 +39,6 @@ actor ToolExecutor {
     }
 
     // Flat tool-name dispatch; one case per tool is clearer than any indirection.
-    // swiftlint:disable:next cyclomatic_complexity
     func execute(toolName: String, input: [String: Any]) async -> ToolResult {
         do {
             switch toolName {
@@ -249,6 +248,10 @@ actor ToolExecutor {
         if let index = numberValue(input["index"]) {
             args.append(contentsOf: ["--index", index])
         }
+        // Tap the row's action control (GET / cloud / OPEN) instead of the label.
+        if (input["row_button"] as? Bool) == true {
+            args.append("--row-right")
+        }
         do {
             let result = try await scriptRunner.run(
                 script: "tap-text.sh", args: args, timeout: Constants.defaultScriptTimeout)
@@ -355,7 +358,7 @@ actor ToolExecutor {
         return nil
     }
 }
-// swiftlint:enable type_body_length
+// swiftlint:enable type_body_length file_length
 
 /// Foreground or background the iPhone Mirroring app (backgrounding = activate
 /// Finder, harmless and always running). Used by the black-frame retry ladder.

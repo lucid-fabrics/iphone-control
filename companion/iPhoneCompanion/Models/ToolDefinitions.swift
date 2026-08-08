@@ -26,7 +26,8 @@ struct ToolDefinitions {
              description: "Tap an on-screen element by its visible text label (found via OCR, no coordinates). PREFER this over tap for any labeled button, tab, link, or list item, e.g. 'Search', 'Get', 'Not Now', 'Continue'. Case-insensitive.",
              properties: [
                 "text": prop("string", "The visible text to tap, e.g. 'Search' or 'Not Now'"),
-                "index": prop("number", "If several matches, tap the Nth from the top (default 1)")
+                "index": prop("number", "If several matches, tap the Nth from the top (default 1)"),
+                "row_button": prop("boolean", "Tap the ACTION CONTROL on that row (GET / download cloud / OPEN) instead of the label. Use this to install or open an app from a search-results list: tap_text with the app's exact title and row_button=true. Far more reliable than guessing the button's coordinates.")
              ],
              required: ["text"]),
 

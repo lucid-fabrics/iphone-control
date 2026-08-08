@@ -3,6 +3,8 @@
 # Case-insensitive; an exact match wins over a substring match.
 # Usage: tap-text.sh <text> [--index N] [--dry] [--cached]
 #   --index N   when several matches, tap the Nth counting from the top (default 1)
+#   --row-right tap the RIGHT side of the matched row instead of the text itself,
+#               i.e. that row's action control (GET / download cloud / OPEN)
 #   --dry       locate and print the match, do not tap
 #   --cached    reuse the last OCR'd position for this query+window size (skip
 #               screenshot+OCR entirely) - for stable chrome like the Done button
@@ -20,11 +22,13 @@ query="$1"; shift
 index=1
 dry=false
 cached=false
+row_right=false
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --index) index="${2:-}"; shift 2 ;;
         --dry) dry=true; shift ;;
         --cached) cached=true; shift ;;
+        --row-right) row_right=true; shift ;;
         *) echo "Error: unknown option: $1" >&2; exit 1 ;;
     esac
 done
@@ -136,7 +140,16 @@ if [[ -z "$selected" ]]; then
 fi
 
 IFS='|' read -r cy cx matched_text <<< "$selected"
-echo "Matched \"$matched_text\" at ($cx, $cy)"
+
+# --row-right: keep the matched row's y but tap the far right of that row, where
+# list rows put their action control (GET / download cloud / OPEN / disclosure).
+# Lets a caller say "install the row called X" without estimating any pixel.
+if $row_right; then
+    cx=$(( CONTENT_W - 28 ))
+    echo "Matched \"$matched_text\" row; tapping its right-side control at ($cx, $cy)"
+else
+    echo "Matched \"$matched_text\" at ($cx, $cy)"
+fi
 if $cached; then
     # Refresh this key's entry
     tmp_cache=$(mktemp /tmp/tap-text-cache-XXXXXX)

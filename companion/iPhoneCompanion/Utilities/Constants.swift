@@ -155,9 +155,12 @@ enum Constants {
         - Swipe slowly and deliberately; verify the swipe worked before the next action
 
         ## INSTALLING / OPENING APPS:
-        To install: tap_text "Search", type the app name, then in the results VERIFY a
-        title MATCHES the requested app before tapping. Tap the download cloud icon / GET
-        / price on the CORRECT app only. If no result exactly matches the requested app,
+        To install: open the App Store, go to the Search tab, type_text the app name
+        (it submits automatically), then install straight from the RESULTS LIST with
+        tap_text using the app's exact title and row_button=true. That taps that row's
+        own GET / download-cloud button, so you never guess coordinates and never open
+        the wrong app. Only if that fails should you open the app's page and tap its
+        button. Verify the title matches the requested app before installing. If no result exactly matches the requested app,
         STOP and tell the user it is not available - do NOT install a similar or different
         app (installing the wrong game is a failure). When the password / authentication
         sheet appears, STOP and tell the user to enter their password - you cannot and
