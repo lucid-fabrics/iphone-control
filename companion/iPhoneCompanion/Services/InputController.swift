@@ -8,7 +8,7 @@ import Carbon.HIToolbox
 // swiftlint:disable file_length
 // Geometry API: x, y, x1..y2, dx, dy are the standard names for coordinates and
 // deltas here; longer identifiers would make the math harder to read.
-// swiftlint:disable identifier_name type_body_length
+// swiftlint:disable type_body_length
 
 /// Protocol for input control operations (DIP support).
 protocol InputControlling: Sendable {
@@ -51,6 +51,27 @@ actor InputController: InputControlling {
         min(max(normalized * limit / 1000, 0), limit)
     }
 
+    private let eventSource = CGEventSource(stateID: .hidSystemState)
+    private var lastPoint = CGPoint.zero
+
+    /// Post a mouse event with full hardware fidelity: per-event deltas, click state
+    /// and pressure. Ported from the tested input engine, whose comment is explicit:
+    /// SpringBoard rejects event streams lacking these fields, which is why bare
+    /// events worked on big buttons but were ignored by strict controls.
+    private func postMouse(_ type: CGEventType, _ point: CGPoint,
+                           pressure: Double, clickState: Int64 = 1) {
+        guard let event = CGEvent(mouseEventSource: eventSource, mouseType: type,
+                                  mouseCursorPosition: point, mouseButton: .left) else { return }
+        event.setIntegerValueField(.mouseEventClickState, value: clickState)
+        event.setIntegerValueField(.mouseEventDeltaX,
+                                   value: Int64((point.x - lastPoint.x).rounded()))
+        event.setIntegerValueField(.mouseEventDeltaY,
+                                   value: Int64((point.y - lastPoint.y).rounded()))
+        event.setDoubleValueField(.mouseEventPressure, value: pressure)
+        event.post(tap: .cghidEventTap)
+        lastPoint = point
+    }
+
     func tap(x: Int, y: Int) async throws -> String {
         let bounds = try await getContentBounds()
         // x/y are normalized 0-1000 (resolution-independent). Map to content pixels
@@ -61,13 +82,14 @@ actor InputController: InputControlling {
         let session = await beginSession()
         let pt = CGPoint(x: absX, y: absY)
 
-        let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
-                         mouseCursorPosition: pt, mouseButton: .left)
-        let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: pt, mouseButton: .left)
-
-        down?.post(tap: .cghidEventTap)
+        // Move first, then press with full hardware fidelity. Bare events without
+        // pressure/clickState/deltas are accepted by large buttons but REJECTED by
+        // stricter controls (the App Store download cloud ignored them entirely).
+        postMouse(.mouseMoved, pt, pressure: 0.0, clickState: 0)
+        Thread.sleep(forTimeInterval: 0.03)
+        postMouse(.leftMouseDown, pt, pressure: 1.0)
         Thread.sleep(forTimeInterval: Constants.tapDownUpDelay)
-        up?.post(tap: .cghidEventTap)
+        postMouse(.leftMouseUp, pt, pressure: 0.0)
 
         await endSession(session)
         try await Task.sleep(nanoseconds: Constants.tapSettleDelay)
@@ -93,27 +115,23 @@ actor InputController: InputControlling {
         let steps = 20
         let stepDelay = Double(durationMs) / 1000.0 / Double(steps)
 
-        let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
-                         mouseCursorPosition: startPt, mouseButton: .left)
-        down?.post(tap: .cghidEventTap)
+        // Same hardware fidelity as taps: SpringBoard's drag recognizer is even
+        // stricter than its tap handling about deltas/pressure.
+        postMouse(.leftMouseDown, startPt, pressure: 1.0)
 
         // Immediate kick to 30% - iOS needs early movement to distinguish drag from long-press
         let kickPt = CGPoint(x: Double(absX1) + dx * 0.3, y: Double(absY1) + dy * 0.3)
-        let kick = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged,
-                         mouseCursorPosition: kickPt, mouseButton: .left)
-        kick?.post(tap: .cghidEventTap)
+        postMouse(.leftMouseDragged, kickPt, pressure: 1.0)
 
-        for i in 1...steps {
+        for step in 1...steps {
             Thread.sleep(forTimeInterval: stepDelay)
-            let f = 0.3 + 0.7 * (Double(i) / Double(steps))
-            let mid = CGPoint(x: Double(absX1) + dx * f, y: Double(absY1) + dy * f)
-            let drag = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged,
-                         mouseCursorPosition: mid, mouseButton: .left)
-            drag?.post(tap: .cghidEventTap)
+            let progress = 0.3 + 0.7 * (Double(step) / Double(steps))
+            let mid = CGPoint(x: Double(absX1) + dx * progress,
+                              y: Double(absY1) + dy * progress)
+            postMouse(.leftMouseDragged, mid, pressure: 1.0)
         }
 
-        let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: endPt, mouseButton: .left)
-        up?.post(tap: .cghidEventTap)
+        postMouse(.leftMouseUp, endPt, pressure: 0.0)
 
         await endSession(session)
         try await Task.sleep(nanoseconds: Constants.swipeSettleDelay)
@@ -466,4 +484,4 @@ private func buildLayoutKeyMap() -> [Character: KeyStroke] {
     return map
 }
 
-// swiftlint:enable identifier_name type_body_length
+// swiftlint:enable type_body_length
