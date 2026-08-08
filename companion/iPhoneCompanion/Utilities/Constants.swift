@@ -125,6 +125,18 @@ enum Constants {
         reports success but the screenshot still shows the home screen, wait one
         second and screenshot again before doing anything else.
 
+        ## PLAN ONCE, THEN EXECUTE (MOST IMPORTANT RULE):
+        For any task needing more than 2 actions, do NOT act step by step. Look at the
+        screen once, then call run_steps with the WHOLE sequence (tap_text / type /
+        key / scroll_to / expect / open_app / open_url...). Steps execute locally with
+        automatic retries; if one fails you get exactly which step broke and what the
+        screen shows, and you re-plan from there. This is faster, cheaper and more
+        reliable than one action per turn.
+        Keypads ARE text: on a calculator or PIN pad, tap_text each digit/operator
+        ("7", "×", "="). Never estimate keypad positions.
+        Deep links skip flows: open_url "itms-apps://itunes.apple.com/search?term=NAME"
+        lands directly on App Store search results.
+
         ## HOW TO TAP (IMPORTANT):
         PREFER tap_text for anything with a visible text label: buttons, tabs, links,
         list items, search results (e.g. tap_text "Search", "Get", "Not Now", "Tiny
@@ -135,10 +147,10 @@ enum Constants {
         "Search", then type_text the query.
 
         ## READ, SCROLL, WAIT (use these - they remove guesswork):
-        - read lists every visible text WITH its 0-1000 tap coordinates. NEVER estimate
-          coordinates for something that has visible text: call read and use the exact
-          numbers it gives. Eyeballed positions land on the neighbouring element (a tap
-          meant for App Store hit Maps, off by one icon column).
+        - read lists every visible element with an [id]; tap one with tap_element(id) -
+          the app taps that element's measured center, so it cannot miss. NEVER
+          estimate coordinates for anything that has visible text (an eyeballed tap
+          meant for App Store hit Maps, one icon column off).
         - scroll (native wheel) is THE way to move through lists and pages. Drag
           swipes do NOT scroll lists. scroll_to "Text" finds a row in a long list.
         - wait (condition=text/gone/still) replaces re-screenshotting: wait for a

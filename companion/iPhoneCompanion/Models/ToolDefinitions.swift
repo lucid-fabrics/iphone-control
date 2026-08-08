@@ -21,6 +21,28 @@ struct ToolDefinitions {
              ],
              required: ["x", "y"]),
 
+        tool("run_steps",
+             description: "Execute a planned sequence of actions locally in one call - USE THIS for any task needing more than 2 actions instead of acting step by step. Each step is an object with \"action\" plus that tool's parameters. Allowed actions: tap_text, type (text, submit), key, scroll, scroll_to, wait, expect (text - checkpoint that this text appears before continuing), open_app, open_url, home, back, clear_text, long_press, swipe. Steps run with automatic per-step retry; on failure you get exactly which step broke and what the screen shows, so you can re-plan. Example for a calculator: [{\"action\":\"open_app\",\"name\":\"Calculator\"},{\"action\":\"tap_text\",\"text\":\"4\"},{\"action\":\"tap_text\",\"text\":\"7\"},{\"action\":\"tap_text\",\"text\":\"\\u00d7\"},{\"action\":\"tap_text\",\"text\":\"8\"},{\"action\":\"tap_text\",\"text\":\"9\"},{\"action\":\"tap_text\",\"text\":\"=\"},{\"action\":\"expect\",\"text\":\"4,183\"}]",
+             properties: [
+                "steps": ["type": "array", "items": ["type": "object"],
+                          "description": "Ordered step objects, each {\"action\": ..., ...params}"] as [String: Any]
+             ],
+             required: ["steps"]),
+
+        tool("tap_element",
+             description: "Tap an element by the [id] number from the most recent read. The most accurate single tap possible: you pick an ID, the app taps that element's measured center - no coordinates involved. Rejected if the screen changed since the read.",
+             properties: [
+                "id": prop("number", "The [id] from the last read output")
+             ],
+             required: ["id"]),
+
+        tool("open_url",
+             description: "Open a URL or deep link on the iPhone via Spotlight. Deep links skip whole UI flows: itms-apps://itunes.apple.com/search?term=NAME jumps straight to App Store search results for NAME.",
+             properties: [
+                "url": prop("string", "The URL or deep link to open")
+             ],
+             required: ["url"]),
+
         tool("tap_text",
              description: "Tap an on-screen element by its visible text label (found via OCR, no coordinates). PREFER this over tap for any labeled button, tab, link, or list item, e.g. 'Search', 'Get', 'Not Now', 'Continue'. Case-insensitive.",
              properties: [

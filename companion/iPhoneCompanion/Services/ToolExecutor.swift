@@ -41,6 +41,10 @@ actor ToolExecutor {
     private var lastModelScreen: [UInt8]?
     private var lastStaleVerdict: String?
 
+    /// Elements from the most recent read, for ID-based tapping (tap_element).
+    private var lastReadElements: [SnapTarget] = []
+    private var lastReadFrame: [UInt8]?
+
     init(scriptsPath: String = Constants.defaultScriptsPath) {
         let runner = ScriptRunner(scriptsPath: scriptsPath)
         self.scriptRunner = runner
@@ -53,7 +57,7 @@ actor ToolExecutor {
     }
 
     // Flat tool-name dispatch; one case per tool is clearer than any indirection.
-    // swiftlint:disable:next cyclomatic_complexity
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func execute(toolName: String, input: [String: Any]) async -> ToolResult {
         do {
             switch toolName {
@@ -63,6 +67,12 @@ actor ToolExecutor {
                 return try await executeScreenshot()
             case "tap":
                 return try await executeTap(input: input)
+            case "tap_element":
+                return try await executeTapElement(input: input)
+            case "run_steps":
+                return await executeRunSteps(input: input)
+            case "open_url":
+                return try await executeOpenURL(input: input)
             case "tap_text":
                 return try await executeTapText(input: input)
             case "swipe":
@@ -179,6 +189,84 @@ actor ToolExecutor {
         }
         try? FileManager.default.removeItem(atPath: outputPath)
         return .image(data)
+    }
+
+    // MARK: - Recipes
+
+    // Run a planned sequence of steps locally: one model round trip instead of
+    // one per action. Each step is retried once on failure; the first hard
+    // failure aborts with a report of exactly which step broke and why, plus
+    // what the screen shows now, so the model can re-plan from real state.
+    // Sequential step runner; the branch-per-outcome shape is the whole point.
+    // swiftlint:disable:next cyclomatic_complexity
+    private func executeRunSteps(input: [String: Any]) async -> ToolResult {
+        guard let steps = input["steps"] as? [[String: Any]], !steps.isEmpty else {
+            return .error("run_steps requires a non-empty steps array")
+        }
+        guard steps.count <= 40 else {
+            return .error("run_steps is limited to 40 steps")
+        }
+
+        var transcriptLines: [String] = []
+        for (index, rawStep) in steps.enumerated() {
+            guard let action = rawStep["action"] as? String else {
+                return .error("Step \(index + 1) has no action")
+            }
+            // "expect" is sugar for wait-until-text with the step treated as a
+            // checkpoint: it failing means the plan's assumption broke.
+            let toolName: String
+            var stepInput = rawStep
+            switch action {
+            case "expect":
+                toolName = "wait"
+                stepInput["condition"] = "text"
+            case "type": toolName = "type_text"
+            case "key": toolName = "press_key"
+            default: toolName = action
+            }
+            guard Self.recipeActions.contains(toolName) else {
+                return .error("Step \(index + 1): action \"\(action)\" is not allowed in run_steps")
+            }
+
+            var result = await execute(toolName: toolName, input: stepInput)
+            if result.isError {
+                // One local retry absorbs transient misses (animation, focus).
+                result = await execute(toolName: toolName, input: stepInput)
+            }
+            if result.isError {
+                let screen = await execute(toolName: "read", input: [:])
+                return .text("""
+                    run_steps ABORTED at step \(index + 1)/\(steps.count) (\(action)): \
+                    \(result.text ?? "unknown error")
+                    Steps completed before the failure:
+                    \(transcriptLines.isEmpty ? "(none)" : transcriptLines.joined(separator: "\n"))
+                    Screen now shows:
+                    \(screen.text ?? "(unreadable)")
+                    """)
+            }
+            transcriptLines.append("[\(index + 1)] \(action): \(result.text ?? "ok")")
+        }
+        return .text("run_steps completed all \(steps.count) steps.\n"
+            + transcriptLines.suffix(3).joined(separator: "\n"))
+    }
+
+    /// Tools a recipe may invoke. tap/tap_element are deliberately excluded:
+    /// recipes are planned before execution, so any coordinate or element ID in
+    /// them would be stale by the time it runs.
+    private static let recipeActions: Set<String> = [
+        "tap_text", "type_text", "press_key", "scroll", "scroll_to", "wait",
+        "open_app", "open_url", "home", "back", "clear_text", "long_press", "swipe"
+    ]
+
+    private func executeOpenURL(input: [String: Any]) async throws -> ToolResult {
+        guard let url = input["url"] as? String, !url.isEmpty else {
+            return .error("open_url requires a url")
+        }
+        // Spotlight opens URLs: type it and submit. Deep links skip whole UI
+        // flows (e.g. itms-apps://itunes.apple.com/search?term=X lands directly
+        // on App Store search results).
+        _ = try await inputController.openAppViaSpotlight(url)
+        return .text("Opened URL via Spotlight. Screenshot to verify where it landed.")
     }
 
     // MARK: - Native CG Implementations (no child process, no TCC inheritance issues)
@@ -530,11 +618,67 @@ actor ToolExecutor {
         let result = try await scriptRunner.run(
             script: "read.sh", args: args, timeout: Constants.defaultScriptTimeout)
         let bounds = try await inputController.getContentBounds()
-        let rescaled = rescaleReadOutput(
-            result.stdout, width: bounds.contentWidth, height: bounds.contentHeight)
-        return .text(rescaled.isEmpty
+
+        // Parse to numbered elements: the model taps by ID (tap_element), never by
+        // a coordinate it computed itself.
+        var elements: [SnapTarget] = []
+        var lines: [String] = []
+        for line in result.stdout.split(separator: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+            guard let coords = parts.first, let comma = coords.firstIndex(of: ","),
+                  let pointX = Int(coords[..<comma]),
+                  let pointY = Int(coords[coords.index(after: comma)...]),
+                  bounds.contentWidth > 0, bounds.contentHeight > 0
+            else { continue }
+            let label = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespaces) : ""
+            let element = SnapTarget(
+                posX: pointX * 1000 / bounds.contentWidth,
+                posY: pointY * 1000 / bounds.contentHeight,
+                label: label)
+            elements.append(element)
+            lines.append("[\(elements.count)] \(label)")
+        }
+
+        // Cache for tap_element, tied to the current frame so a stale ID cannot
+        // silently tap the wrong screen.
+        lastReadElements = elements
+        if let geo = WindowCapture.geometry(contentBounds: bounds),
+           let png = await WindowCapture.capturePNG(geo) {
+            lastReadFrame = frameSignature(png)
+        } else {
+            lastReadFrame = nil
+        }
+
+        return .text(elements.isEmpty
             ? "No matching text on screen."
-            : "On-screen text as x,y (0-1000 grid, feed straight into tap):\n" + rescaled)
+            : "On-screen elements (tap one with tap_element and its [id]):\n"
+                + lines.joined(separator: "\n"))
+    }
+
+    private func executeTapElement(input: [String: Any]) async throws -> ToolResult {
+        guard let id = intValue(input["id"]) else {
+            return .error("tap_element requires the id from the last read")
+        }
+        guard !lastReadElements.isEmpty else {
+            return .error("No read results cached - call read first, then tap_element.")
+        }
+        guard id >= 1, id <= lastReadElements.count else {
+            return .error("id \(id) out of range: last read had \(lastReadElements.count) elements.")
+        }
+        // Refuse stale IDs: if the screen changed since the read, the numbering
+        // no longer matches what the model is looking at.
+        if let seen = lastReadFrame,
+           let bounds = try? await inputController.getContentBounds(),
+           let geo = WindowCapture.geometry(contentBounds: bounds),
+           let png = await WindowCapture.capturePNG(geo),
+           let now = frameSignature(png),
+           !signaturesMatch(now, seen) {
+            return .error("Screen changed since the last read - read again, then tap_element.")
+        }
+        let element = lastReadElements[id - 1]
+        _ = try await inputController.tap(x: element.posX, y: element.posY)
+        return .text("Tapped [\(id)] \"\(element.label)\". Screenshot or read to verify.")
     }
 
     /// read.sh prints "x,y  text" in content points; convert coordinates to the
