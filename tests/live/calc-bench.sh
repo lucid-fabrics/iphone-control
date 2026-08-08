@@ -7,14 +7,40 @@
 # result (so scoring needs no judgement), and nothing is installed or purchased.
 # A wrong digit is a mis-landed tap, full stop.
 #
-# Usage: calc-bench.sh [case ...]        (default: the built-in set)
+# Usage: calc-bench.sh              run the full set (~1 min per case)
+#        calc-bench.sh --quick      3-case smoke check
+#        calc-bench.sh "12 times 12=144" ...   explicit cases
 #        case format "expr=expected", e.g. "47 times 89=4,183"
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-CASES=("47 times 89=4,183" "128 plus 256=384" "96 divided by 8=12")
+# Full set: every digit 0-9 is pressed at least once and all four operators are
+# exercised, including results carrying a thousands separator (the comma in the
+# display is an easy false negative when matching naively).
+ALL_CASES=(
+    "47 times 89=4,183"
+    "128 plus 256=384"
+    "96 divided by 8=12"
+    "12 times 12=144"
+    "365 plus 635=1,000"
+    "500 minus 137=363"
+    "144 divided by 12=12"
+    "9 times 9=81"
+    "70 minus 24=46"
+    "8 times 125=1,000"
+    "256 plus 744=1,000"
+    "6 times 7=42"
+    "81 divided by 3=27"
+)
+QUICK_CASES=("47 times 89=4,183" "365 plus 635=1,000" "70 minus 24=46")
+
+CASES=("${ALL_CASES[@]}")
+if [[ "${1:-}" == "--quick" ]]; then
+    CASES=("${QUICK_CASES[@]}")
+    shift
+fi
 (( $# > 0 )) && CASES=("$@")
 
 panel() {
