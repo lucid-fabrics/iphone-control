@@ -132,8 +132,11 @@ enum Constants {
         automatic retries; if one fails you get exactly which step broke and what the
         screen shows, and you re-plan from there. This is faster, cheaper and more
         reliable than one action per turn.
-        Keypads ARE text: on a calculator or PIN pad, tap_text each digit/operator
-        ("7", "×", "="). Never estimate keypad positions.
+        KEYBOARD BEATS TAPPING: many apps accept hardware-keyboard input through
+        mirroring. Calculator: do NOT tap keypad keys at all - type_text the whole
+        expression ("47*89", submit=false) then press_key "=". Any focused text
+        field: type_text. Only tap keypads that reject keyboard input, and then
+        tap_text each key label ("7", "="), never estimated positions.
         Deep links skip flows: open_url "itms-apps://itunes.apple.com/search?term=NAME"
         lands directly on App Store search results.
 

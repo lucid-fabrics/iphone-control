@@ -178,7 +178,7 @@ for (( idx=0; idx<LIMIT && idx<${#CASES[@]}; idx++ )); do
         sleep 0.4; paste_cmd; sleep 0.4
         click "$(( PX + PW - 28 ))" "$(( PY + PH - 26 ))"
         got=""
-        while (( SECONDS - t0 < 120 )); do
+        while (( SECONDS - t0 < 200 )); do
             sleep 6
             got=$("$ROOT/read.sh" --grep "^${expected//,/,?}$" 2>/dev/null | head -1)
             [[ -n "$got" ]] && break

@@ -162,13 +162,23 @@ actor InputController: InputControlling {
         return submit ? "Typed: \(text) + Return" : "Typed: \(text)"
     }
 
-    /// Press a single named key (return, escape, delete, tab, space, arrows).
+    /// Press a named key (return, escape, delete, tab, space, arrows) or any
+    /// single character, resolved through the active keyboard layout ("=", "*",
+    /// digits...). Lets keyboard-accepting apps like Calculator be driven with
+    /// no tapping at all.
     func pressKey(_ name: String) async throws -> String {
-        guard let code = Self.keyCode(for: name) else {
+        var code = Self.keyCode(for: name)
+        var flags: CGEventFlags = []
+        if code == nil, name.count == 1, let char = name.first,
+           let stroke = Self.keyMap[char] ?? Self.keyMap[Character(name.lowercased())] {
+            code = stroke.code
+            flags = stroke.flags
+        }
+        guard let code else {
             throw InputError.menuNotFound("Unknown key: \(name)")
         }
         let session = await beginSession()
-        postKeyCode(code)
+        postKeyCode(code, flags: flags)
         await endSession(session)
         return "Pressed: \(name)"
     }
