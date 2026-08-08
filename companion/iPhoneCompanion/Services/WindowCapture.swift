@@ -67,23 +67,11 @@ enum WindowCapture {
             width: geo.content.width * scale,
             height: geo.content.height * scale
         ).integral
-        guard let cropped = raw.cropping(to: cropRect),
-              let resampled = resample(
-                cropped, width: Int(geo.content.width), height: Int(geo.content.height))
-        else { return nil }
-        return pngData(resampled)
-    }
-
-    /// Exact point-dimension resample: the normalized space all taps use.
-    private static func resample(_ img: CGImage, width: Int, height: Int) -> CGImage? {
-        guard let ctx = CGContext(
-            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-        ctx.interpolationQuality = .high
-        ctx.draw(img, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return ctx.makeImage()
+        // Keep NATIVE pixels (720x1560 on a Retina display) instead of resampling
+        // down to points: tap coordinates are normalized 0-1000 so image size never
+        // affects them, and small UI text at 360px was too coarse for model vision.
+        guard let cropped = raw.cropping(to: cropRect) else { return nil }
+        return pngData(cropped)
     }
 
     private static func pngData(_ img: CGImage) -> Data? {
