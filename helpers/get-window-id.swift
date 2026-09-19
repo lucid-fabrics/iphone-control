@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -7,7 +8,12 @@ guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindow
 }
 
 for win in list {
-    guard let owner = win["kCGWindowOwnerName"] as? String, owner == "iPhone Mirroring" else { continue }
+    // kCGWindowOwnerName is localized (for example, `iPhoneミラーリング`
+    // with Japanese as the macOS display language). Identify the application
+    // by its stable bundle identifier instead of its user-visible name.
+    guard let ownerPID = win["kCGWindowOwnerPID"] as? NSNumber,
+          let application = NSRunningApplication(processIdentifier: ownerPID.int32Value),
+          application.bundleIdentifier == "com.apple.ScreenContinuity" else { continue }
     let num = win["kCGWindowNumber"] as? Int ?? 0
     let bounds = win["kCGWindowBounds"] as? [String: Any] ?? [:]
     let winX = bounds["X"] as? CGFloat ?? 0
