@@ -1,6 +1,13 @@
 import CoreGraphics
 import AppKit
 
+/// True when a CGWindowList entry belongs to iPhone Mirroring. Matches the owner's
+/// bundle ID, never kCGWindowOwnerName, which is localized (e.g. Japanese macOS).
+func isMirroringWindow(_ info: [String: Any]) -> Bool {
+    guard let pid = info[kCGWindowOwnerPID as String] as? Int else { return false }
+    return NSRunningApplication(processIdentifier: pid_t(pid))?.bundleIdentifier == Constants.iphoneMirroringBundleId
+}
+
 class WindowManager {
     struct WindowFrame {
         let origin: CGPoint
@@ -20,8 +27,7 @@ class WindowManager {
         }
 
         for window in windowList {
-            guard let owner = window[kCGWindowOwnerName as String] as? String,
-                  owner == "iPhone Mirroring",
+            guard isMirroringWindow(window),
                   let bounds = window[kCGWindowBounds as String] as? [String: Any],
                   let x = numericValue(bounds["X"]),
                   let y = numericValue(bounds["Y"]),
@@ -88,8 +94,9 @@ class WindowManager {
     }
 
     private func findViaAccessibility() -> WindowFrame? {
-        let apps = NSWorkspace.shared.runningApplications
-        guard let mirroringApp = apps.first(where: { $0.localizedName == "iPhone Mirroring" }) else { return nil }
+        guard let mirroringApp = NSRunningApplication.runningApplications(
+            withBundleIdentifier: Constants.iphoneMirroringBundleId
+        ).first else { return nil }
 
         let appElement = AXUIElementCreateApplication(mirroringApp.processIdentifier)
         var windowsRef: CFTypeRef?

@@ -7,7 +7,7 @@ protocol InputControlling: Sendable {
     func tap(x: Int, y: Int) async throws -> String
     func swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int) async throws -> String
     func typeText(_ text: String, tapX: Int?, tapY: Int?) async throws -> String
-    func clickViewMenuItem(_ itemName: String) async throws -> String
+    func sendViewShortcut(_ shortcut: ViewShortcut) async throws
     func openAppViaSpotlight(_ appName: String) async throws -> String
     func getContentBounds() async throws -> InputController.ContentBounds
 }
@@ -125,27 +125,10 @@ actor InputController: InputControlling {
 
     // MARK: - View Menu Actions (home, app switcher, spotlight)
 
-    func clickViewMenuItem(_ itemName: String) async throws -> String {
+    func sendViewShortcut(_ shortcut: ViewShortcut) async throws {
         let session = await beginSession()
-        do {
-            let result = try await clickViewMenuItemCore(itemName)
-            await endSession(session)
-            return result
-        } catch {
-            await endSession(session)
-            throw error
-        }
-    }
-
-    /// Assumes iPhone Mirroring is already active (inside an input session).
-    private func clickViewMenuItemCore(_ itemName: String) async throws -> String {
-        Thread.sleep(forTimeInterval: Constants.menuOpenDelay)
-
-        guard let pid = await iPhoneMirroringPID() else {
-            throw InputError.windowNotFound
-        }
-
-        return try AccessibilityHelper.clickViewMenuItem(itemName, pid: pid)
+        shortcut.post()
+        await endSession(session)
     }
 
     // MARK: - Open App via Spotlight
@@ -153,8 +136,8 @@ actor InputController: InputControlling {
     func openAppViaSpotlight(_ appName: String) async throws -> String {
         let session = await beginSession()
         do {
-            // Open Spotlight via View menu
-            _ = try await clickViewMenuItemCore("Spotlight")
+            // Open Spotlight via its Cmd+3 shortcut (menu titles are localized)
+            ViewShortcut.spotlight.post()
             try await Task.sleep(nanoseconds: Constants.spotlightOpenDelay)
 
             // Type the app name
@@ -198,8 +181,7 @@ actor InputController: InputControlling {
         ) as? [[String: Any]] else { return nil }
 
         for window in list {
-            guard let owner = window[kCGWindowOwnerName as String] as? String,
-                  owner == "iPhone Mirroring",
+            guard isMirroringWindow(window),
                   let boundsDict = window[kCGWindowBounds as String] as? NSDictionary
             else { continue }
 
@@ -316,14 +298,6 @@ actor InputController: InputControlling {
         }
     }
 
-    // MARK: - Helpers
-
-    @MainActor
-    private func iPhoneMirroringPID() -> pid_t? {
-        NSWorkspace.shared.runningApplications
-            .first(where: { $0.bundleIdentifier == Constants.iphoneMirroringBundleId })?
-            .processIdentifier
-    }
 }
 
 enum InputError: LocalizedError {

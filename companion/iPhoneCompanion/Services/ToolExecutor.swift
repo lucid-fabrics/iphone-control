@@ -96,8 +96,7 @@ actor ToolExecutor {
             [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
         ) as? [[String: Any]] else { return [] }
         return list.filter { window in
-            guard let owner = window[kCGWindowOwnerName as String] as? String,
-                  owner == "iPhone Mirroring",
+            guard isMirroringWindow(window),
                   let boundsDict = window[kCGWindowBounds as String] as? NSDictionary
             else { return false }
             var rect = CGRect.zero
@@ -212,12 +211,12 @@ actor ToolExecutor {
     }
 
     private func executeHome() async throws -> ToolResult {
-        _ = try await inputController.clickViewMenuItem("Home Screen")
+        try await inputController.sendViewShortcut(.homeScreen)
         return .text("Went to Home Screen. Screenshot to verify.")
     }
 
     private func executeAppSwitcher() async throws -> ToolResult {
-        _ = try await inputController.clickViewMenuItem("App Switcher")
+        try await inputController.sendViewShortcut(.appSwitcher)
         return .text("Opened App Switcher. Screenshot to verify.")
     }
 

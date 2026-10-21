@@ -33,7 +33,7 @@
 		AA000030 /* SSEStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000030; };
 		AA000031 /* AIServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000031; };
 		AA000032 /* ToolOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000032; };
-		AA000033 /* AccessibilityHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000033; };
+		AA000033 /* ViewShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000033; };
 		AA000034 /* ChatInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000034; };
 		AA000035 /* ChatToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000035; };
 		AA000036 /* ProviderSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000036; };
@@ -69,7 +69,7 @@
 		AB000030 /* SSEStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEStreamParser.swift; sourceTree = "<group>"; };
 		AB000031 /* AIServiceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceFactory.swift; sourceTree = "<group>"; };
 		AB000032 /* ToolOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolOrchestrator.swift; sourceTree = "<group>"; };
-		AB000033 /* AccessibilityHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHelper.swift; sourceTree = "<group>"; };
+		AB000033 /* ViewShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewShortcut.swift; sourceTree = "<group>"; };
 		AB000034 /* ChatInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputView.swift; sourceTree = "<group>"; };
 		AB000035 /* ChatToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatToolbarView.swift; sourceTree = "<group>"; };
 		AB000036 /* ProviderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSettingsView.swift; sourceTree = "<group>"; };
@@ -171,7 +171,7 @@
 				AB000016 /* WindowManager.swift */,
 				AB000017 /* Constants.swift */,
 				AB000023 /* ClaudeCodeAuthHelper.swift */,
-				AB000033 /* AccessibilityHelper.swift */,
+				AB000033 /* ViewShortcut.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -273,7 +273,7 @@
 				AA000030 /* SSEStreamParser.swift in Sources */,
 				AA000031 /* AIServiceFactory.swift in Sources */,
 				AA000032 /* ToolOrchestrator.swift in Sources */,
-				AA000033 /* AccessibilityHelper.swift in Sources */,
+				AA000033 /* ViewShortcut.swift in Sources */,
 				AA000034 /* ChatInputView.swift in Sources */,
 				AA000035 /* ChatToolbarView.swift in Sources */,
 				AA000036 /* ProviderSettingsView.swift in Sources */,
