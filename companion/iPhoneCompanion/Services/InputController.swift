@@ -126,14 +126,22 @@ actor InputController: InputControlling {
     // MARK: - View Menu Actions (home, app switcher, spotlight)
 
     func sendViewShortcut(_ shortcut: ViewShortcut) async throws {
+        try requireMirroringRunning()
         let session = await beginSession()
         shortcut.post()
         await endSession(session)
     }
 
+    /// Refuses to post input when Mirroring is not running; otherwise the keys would land in the user's frontmost app.
+    private func requireMirroringRunning() throws {
+        guard !NSRunningApplication.runningApplications(withBundleIdentifier: Constants.iphoneMirroringBundleId).isEmpty
+        else { throw InputError.windowNotFound }
+    }
+
     // MARK: - Open App via Spotlight
 
     func openAppViaSpotlight(_ appName: String) async throws -> String {
+        try requireMirroringRunning()
         let session = await beginSession()
         do {
             // Open Spotlight via its Cmd+3 shortcut (menu titles are localized)

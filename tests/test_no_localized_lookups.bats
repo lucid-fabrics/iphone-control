@@ -21,7 +21,7 @@ scan() {
 }
 
 @test "no process or application lookup by the localized app name" {
-    run scan "(process|application|processes\.byName|byName)[[:space:](\\\\]*[\"']iPhone Mirroring[\"']"
+    run scan "(process|application|processes\.byName|byName|pgrep|killall|open -a)[[:space:](\\\\]*[\"']iPhone Mirroring[\"']"
     [ -z "$output" ] || { echo "$output"; false; }
 }
 
@@ -36,12 +36,12 @@ scan() {
 }
 
 @test "no localizedName comparison" {
-    run scan 'localizedName[[:space:]]*(==|!=)'
+    run scan 'localizedName\)?[[:space:]]*(==|!=)'
     [ -z "$output" ] || { echo "$output"; false; }
 }
 
 @test "no menu matching by localized title" {
-    run scan "byName\\([\"'](View|Spotlight|Home Screen|App Switcher)[\"']\\)|title == \"View\"|title == itemName"
+    run scan "byName\\([\"'](View|Spotlight|Home Screen|App Switcher)[\"']\\)|title == \"View\"|title == itemName|whose name is \"(View|Spotlight)\""
     [ -z "$output" ] || { echo "$output"; false; }
 }
 
