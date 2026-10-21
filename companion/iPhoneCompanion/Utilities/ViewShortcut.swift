@@ -9,26 +9,24 @@ enum ViewShortcut: Int {
     case spotlight = 3
 
     /// Key code and flags that produce Cmd+<digit> on the active keyboard layout.
-    /// On layouts where the digit needs Shift (AZERTY), Shift is added; falls back to
-    /// the ANSI digit row if the layout cannot be queried.
+    /// Same scan as the input engine's keyfor (active ASCII-capable layout, lowest modifier
+    /// combo first, lowest keycode first, keypad included), so every Cmd+digit path sends the
+    /// same key. Falls back to the ANSI digit row if the layout cannot be queried.
     func keyStroke() -> (code: CGKeyCode, flags: CGEventFlags) {
         let ansi: [CGKeyCode] = [18, 19, 20]
         let fallback = (code: ansi[rawValue - 1], flags: CGEventFlags.maskCommand)
-        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+        guard let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue(),
               let dataRef = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
         else { return fallback }
         let layout = unsafeBitCast(dataRef, to: CFData.self)
         let target = Character(String(rawValue))
         for (shift, flags) in [(0, CGEventFlags.maskCommand), (2, [.maskCommand, .maskShift])] {
-            for code in 0..<UInt16(128) where !Self.keypad.contains(code) && Self.character(for: code, shiftState: UInt32(shift), layout: layout) == target {
+            for code in 0..<UInt16(128) where Self.character(for: code, shiftState: UInt32(shift), layout: layout) == target {
                 return (CGKeyCode(code), flags)
             }
         }
         return fallback
     }
-
-    /// Keypad key codes: they produce digits too, but the menu shortcut lives on the main row.
-    private static let keypad: Set<UInt16> = [65, 67, 69, 75, 78, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92]
 
     private static func character(for code: UInt16, shiftState: UInt32, layout: CFData) -> Character? {
         var deadKeys: UInt32 = 0
