@@ -1,6 +1,13 @@
 import CoreGraphics
 import AppKit
 
+/// PIDs of the running iPhone Mirroring process(es), looked up once per window scan.
+/// Matches the bundle ID, never kCGWindowOwnerName, which is localized (e.g. Japanese macOS).
+func mirroringPIDs() -> Set<Int> {
+    Set(NSRunningApplication.runningApplications(withBundleIdentifier: Constants.iphoneMirroringBundleId)
+        .map { Int($0.processIdentifier) })
+}
+
 class WindowManager {
     struct WindowFrame {
         let origin: CGPoint
@@ -19,9 +26,9 @@ class WindowManager {
             return nil
         }
 
+        let pids = mirroringPIDs()
         for window in windowList {
-            guard let owner = window[kCGWindowOwnerName as String] as? String,
-                  owner == "iPhone Mirroring",
+            guard let pid = window[kCGWindowOwnerPID as String] as? Int, pids.contains(pid),
                   let bounds = window[kCGWindowBounds as String] as? [String: Any],
                   let x = numericValue(bounds["X"]),
                   let y = numericValue(bounds["Y"]),
@@ -88,8 +95,9 @@ class WindowManager {
     }
 
     private func findViaAccessibility() -> WindowFrame? {
-        let apps = NSWorkspace.shared.runningApplications
-        guard let mirroringApp = apps.first(where: { $0.localizedName == "iPhone Mirroring" }) else { return nil }
+        guard let mirroringApp = NSRunningApplication.runningApplications(
+            withBundleIdentifier: Constants.iphoneMirroringBundleId
+        ).first else { return nil }
 
         let appElement = AXUIElementCreateApplication(mirroringApp.processIdentifier)
         var windowsRef: CFTypeRef?

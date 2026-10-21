@@ -8,10 +8,11 @@ source "$SCRIPT_DIR/helpers/common.sh"
 
 status_code=$(osascript -e "
 tell application \"System Events\"
-    if not (exists process \"${IPHONE_MIRRORING_PROCESS}\") then
+    set procs to every process whose bundle identifier is \"${IPHONE_MIRRORING_BUNDLE_ID}\"
+    if (count of procs) = 0 then
         return \"not_running\"
     end if
-    tell process \"${IPHONE_MIRRORING_PROCESS}\"
+    tell item 1 of procs
         if not (exists window 1) then
             return \"not_running\"
         end if

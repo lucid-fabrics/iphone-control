@@ -158,3 +158,98 @@ STUB
     [[ "$output" == *"CGEventCreateKeyboardEvent(kSrc, ${exp_code}"* ]]
     [[ "$output" == *"kCGEventFlagMaskCommand"* ]]
 }
+
+# --- Keypad-first resolution (parity with iphone-control.sh on main) ---
+# The live-verified calculator baseline types digits and operators through the
+# number pad: keypad keys give the same character on every phone layout, with no
+# modifier. INPUT_LAYOUT_ID selects an installed layout for the query only; system
+# settings are not touched. The engine is compiled from source into a temp dir so
+# these tests never skip on a fresh clone and never use a stale binary.
+
+build_engine() {
+    ENGINE_UNDER_TEST="${ENGINE_SRC_DIR:-$PROJECT_ROOT/helpers/input-src}"
+    ENGINE_BIN="$BATS_FILE_TMPDIR/input-$(basename "$(dirname "$ENGINE_UNDER_TEST")")"
+    [ -x "$ENGINE_BIN" ] || swiftc -O "$ENGINE_UNDER_TEST"/*.swift -o "$ENGINE_BIN" 2>/dev/null
+    [ -x "$ENGINE_BIN" ]
+}
+
+@test "native keyfor: + and * resolve to the keypad with no modifier (US layout)" {
+    build_engine
+    export INPUT_LAYOUT_ID="com.apple.keylayout.US"
+    run "$ENGINE_BIN" keyfor "+"
+    [ "$status" -eq 0 ]
+    [ "$output" = "69 0" ]
+    run "$ENGINE_BIN" keyfor "*"
+    [ "$status" -eq 0 ]
+    [ "$output" = "67 0" ]
+}
+
+@test "native keyfor: + and * on the current layout never need Shift on the keypad" {
+    build_engine
+    unset INPUT_LAYOUT_ID
+    run "$ENGINE_BIN" keyfor "+"
+    [ "$status" -eq 0 ]
+    [ "$output" = "69 0" ]
+    run "$ENGINE_BIN" keyfor "*"
+    [ "$status" -eq 0 ]
+    [ "$output" = "67 0" ]
+}
+
+@test "native keyfor: French layout digits resolve with no modifiers" {
+    build_engine
+    export INPUT_LAYOUT_ID="com.apple.keylayout.French"
+    local d out
+    for d in 0 1 2 3 4 5 6 7 8 9; do
+        out=$("$ENGINE_BIN" keyfor "$d") || { echo "keyfor $d failed"; false; }
+        [ "${out##* }" = "0" ] || { echo "digit $d needs a modifier: $out"; false; }
+    done
+}
+
+@test "native keyfor: an unknown INPUT_LAYOUT_ID falls back to the active layout" {
+    build_engine
+    unset INPUT_LAYOUT_ID
+    local expected
+    expected=$("$ENGINE_BIN" keyfor "a")
+    export INPUT_LAYOUT_ID="com.example.no-such-layout"
+    run "$ENGINE_BIN" keyfor "a"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$expected" ]
+}
+
+@test "view shortcut: companion ViewShortcut and the engine agree on Cmd+1/2/3" {
+    build_engine
+    local probe="$BATS_FILE_TMPDIR/viewshortcut"
+    cat > "$BATS_FILE_TMPDIR/stub.swift" <<'SWIFT'
+import CoreGraphics
+import Foundation
+enum Constants { static let keystrokeDelay: TimeInterval = 0 }
+SWIFT
+    cat > "$BATS_FILE_TMPDIR/main.swift" <<'SWIFT'
+import CoreGraphics
+for n in 1...3 {
+    let k = ViewShortcut(rawValue: n)!.keyStroke()
+    print(n, k.code, k.flags.contains(.maskShift) ? 1 : 0)
+}
+SWIFT
+    swiftc "$PROJECT_ROOT/companion/iPhoneCompanion/Utilities/ViewShortcut.swift" \
+        "$BATS_FILE_TMPDIR/stub.swift" "$BATS_FILE_TMPDIR/main.swift" -o "$probe" 2>/dev/null \
+        || skip "cannot compile ViewShortcut"
+    # ViewShortcut has no layout override hook, so compare on the active layout.
+    local n code shift out ecode eflags
+    while read -r n code shift; do
+        out=$(INPUT_LAYOUT_ID="" "$ENGINE_BIN" keyfor "$n")
+        ecode="${out%% *}"; eflags="${out##* }"
+        [ "$code" = "$ecode" ] || { echo "Cmd+$n: companion $code vs engine $ecode"; false; }
+        [ "$shift" = "$(( (eflags & 131072) ? 1 : 0 ))" ] || { echo "Cmd+$n shift mismatch"; false; }
+    done < <("$probe")
+}
+
+@test "view_shortcut_body follows the engine keyfor result" {
+    build_engine
+    local out
+    out=$(INPUT_LAYOUT_ID="" "$ENGINE_BIN" keyfor 1)
+    local code="${out%% *}"
+    run bash -c 'SCRIPT_DIR="$1"; source "$1/helpers/common.sh"; view_shortcut_body 1' _ "$PROJECT_ROOT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"CGEventCreateKeyboardEvent(kSrc, ${code}"* ]]
+}

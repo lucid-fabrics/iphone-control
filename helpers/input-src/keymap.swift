@@ -15,12 +15,25 @@ struct KeyStroke {
     let flags: CGEventFlags
 }
 
+/// The layout to resolve against: the active ASCII-capable one, unless
+/// INPUT_LAYOUT_ID names an installed layout (e.g. com.apple.keylayout.French).
+/// An unknown id falls back to the active ASCII-capable layout. The override
+/// lets tests exercise other layouts without touching system settings.
+private func layoutSource() -> TISInputSource? {
+    if let id = ProcessInfo.processInfo.environment["INPUT_LAYOUT_ID"], !id.isEmpty {
+        let filter = [kTISPropertyInputSourceID as String: id] as CFDictionary
+        let list = TISCreateInputSourceList(filter, true)?.takeRetainedValue() as? [TISInputSource]
+        if let match = list?.first { return match }
+    }
+    return TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue()
+}
+
 /// Build character -> keystroke by asking the active layout what every
 /// keycode/modifier combination produces. Lower modifier combos are inserted
 /// first and never overwritten, so 'a' resolves to plain A, not some
 /// option-combination that happens to produce the same glyph.
 func buildKeyMap() -> [Character: KeyStroke] {
-    guard let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue(),
+    guard let source = layoutSource(),
           let dataRef = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
     else { return [:] }
     let data = Unmanaged<CFData>.fromOpaque(dataRef).takeUnretainedValue() as Data

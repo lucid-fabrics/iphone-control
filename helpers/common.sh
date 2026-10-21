@@ -6,7 +6,6 @@ set -euo pipefail
 
 # --- Constants ---
 IPHONE_MIRRORING_BUNDLE_ID="com.apple.ScreenContinuity"
-IPHONE_MIRRORING_PROCESS="iPhone Mirroring"
 
 # Timing constants (seconds)
 ACTIVATION_DELAY=0.05
@@ -223,6 +222,31 @@ $(String($.NSDate.date.timeIntervalSince1970)).writeToFileAtomicallyEncodingErro
 JXAEOF
     osascript -l JavaScript "$tmp_jxa" > /dev/null || { rm -f "$tmp_jxa"; return 1; }
     rm -f "$tmp_jxa"
+}
+
+# --- View menu shortcuts ---
+# Home Screen = Cmd+1, App Switcher = Cmd+2, Spotlight = Cmd+3. Menu titles are
+# localized ("View", "Spotlight"...), so we never look them up by name.
+# Prints a JXA body that sends Cmd+<digit>. The digit is resolved through the
+# active keyboard layout (not a fixed US-QWERTY table) so it works on
+# AZERTY/QWERTZ/etc, falling back to the static table if the native engine
+# cannot be built. Run it inside jxa_activate_and_run.
+# Usage: view_shortcut_body <1|2|3>
+view_shortcut_body() {
+    local key="$1" code="" engine keyfor_out base_flags flags_expr='$.kCGEventFlagMaskCommand'
+    engine=$(input_engine "$SCRIPT_DIR/helpers" 2>/dev/null) || engine=""
+    if [[ -n "$engine" ]]; then
+        keyfor_out=$("$engine" keyfor "$key" 2>/dev/null) || keyfor_out=""
+        if [[ -n "$keyfor_out" ]]; then
+            code="${keyfor_out%% *}"
+            base_flags="${keyfor_out##* }"
+            [[ "$base_flags" != "0" ]] && flags_expr="${base_flags} | ${flags_expr}"
+        fi
+    fi
+    if [[ -z "$code" ]]; then
+        code=$(keycode_for "$key") || { echo "Error: bad view shortcut key: $key" >&2; return 1; }
+    fi
+    jxa_key_body "$code" "$flags_expr"
 }
 
 # --- Native Input Engine ---

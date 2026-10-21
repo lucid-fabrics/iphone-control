@@ -26,9 +26,11 @@ _open_via_spotlight() {
     tmp_name=$(mktemp /tmp/open-app-XXXXXX.txt)
     printf '%s' "$app_name" > "$tmp_name"
 
+    local spotlight_body
+    spotlight_body=$(view_shortcut_body 3) || { rm -f "$tmp_name"; return 1; }
+
     jxa_activate_and_run "
-const proc = Application('System Events').processes.byName('${IPHONE_MIRRORING_PROCESS}');
-proc.menuBars[0].menuBarItems.byName('View').menus[0].menuItems.byName('Spotlight').click();
+${spotlight_body}
 \$.NSThread.sleepForTimeInterval(${SPOTLIGHT_DELAY});
 
 const nameData = \$.NSData.dataWithContentsOfFile('${tmp_name}');

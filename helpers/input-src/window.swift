@@ -5,6 +5,7 @@
 // find-window.sh, which owns the alpha-scan logic - one implementation of the
 // tricky part, and it runs at most once per cache TTL (or when the window moves).
 
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -27,12 +28,21 @@ struct WindowInfo {
     }
 }
 
+/// PIDs of the running iPhone Mirroring process(es), looked up once per scan.
+/// Matches the bundle ID, never kCGWindowOwnerName, which is localized.
+func mirroringPIDs() -> Set<Int> {
+    Set(NSRunningApplication.runningApplications(withBundleIdentifier: Tune.bundleID)
+        .map { Int($0.processIdentifier) })
+}
+
 /// Frame of the mirroring window in global points, or nil if it is not open.
 func mirroringWindowFrame() -> WindowFrame? {
     guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
     else { return nil }
+    let pids = mirroringPIDs()
+    guard !pids.isEmpty else { return nil }
     for win in list {
-        guard let owner = win[kCGWindowOwnerName as String] as? String, owner == "iPhone Mirroring",
+        guard let pid = win[kCGWindowOwnerPID as String] as? Int, pids.contains(pid),
               let num = win[kCGWindowNumber as String] as? Int,
               let b = win[kCGWindowBounds as String] as? [String: CGFloat]
         else { continue }

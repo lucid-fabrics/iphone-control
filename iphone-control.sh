@@ -40,27 +40,13 @@ cmd="${1:-help}"
 shift || true
 
 # Helper: trigger a View menu action by its keyboard shortcut (Cmd+1/2/3).
-# ~2.4x faster than opening the menu and clicking the item, and it goes through
-# jxa_activate_and_run so focus and cursor are restored afterwards.
-# Resolves the digit via the active keyboard layout (not a fixed US-QWERTY
-# table) so this works when the Mac's layout is AZERTY/QWERTZ/etc, falling
-# back to the static table if the native engine cannot be built.
+# Locale-proof (menu titles are localized) and ~2.4x faster than clicking the
+# menu item; goes through jxa_activate_and_run so focus and cursor are restored.
 _view_menu_key() {
-    local key="$1" code="" engine keyfor_out flags_expr='$.kCGEventFlagMaskCommand'
-    engine=$(input_engine "$SCRIPT_DIR/helpers" 2>/dev/null) || engine=""
-    if [[ -n "$engine" ]]; then
-        keyfor_out=$("$engine" keyfor "$key" 2>/dev/null) || keyfor_out=""
-        if [[ -n "$keyfor_out" ]]; then
-            code="${keyfor_out%% *}"
-            base_flags="${keyfor_out##* }"
-            [[ "$base_flags" != "0" ]] && flags_expr="${base_flags} | ${flags_expr}"
-        fi
-    fi
-    if [[ -z "$code" ]]; then
-        code=$(keycode_for "$key") || { echo "Error: bad view shortcut key: $key" >&2; return 1; }
-    fi
-    jxa_activate_and_run "$(jxa_key_body "$code" "$flags_expr")" || {
-        echo "Error: Failed to send Cmd+${key}. Is iPhone Mirroring running?" >&2
+    local body
+    body=$(view_shortcut_body "$1") || return 1
+    jxa_activate_and_run "$body" || {
+        echo "Error: Failed to send Cmd+${1}. Is iPhone Mirroring running?" >&2
         return 1
     }
 }
