@@ -188,8 +188,9 @@ actor InputController: InputControlling {
             [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
         ) as? [[String: Any]] else { return nil }
 
+        let pids = mirroringPIDs()
         for window in list {
-            guard isMirroringWindow(window),
+            guard let pid = window[kCGWindowOwnerPID as String] as? Int, pids.contains(pid),
                   let boundsDict = window[kCGWindowBounds as String] as? NSDictionary
             else { continue }
 

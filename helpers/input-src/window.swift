@@ -28,19 +28,21 @@ struct WindowInfo {
     }
 }
 
-/// True when a CGWindowList entry belongs to iPhone Mirroring. Matches the owner's
-/// bundle ID, never kCGWindowOwnerName, which is localized (e.g. Japanese macOS).
-func isMirroringWindow(_ info: [String: Any]) -> Bool {
-    guard let pid = info[kCGWindowOwnerPID as String] as? Int else { return false }
-    return NSRunningApplication(processIdentifier: pid_t(pid))?.bundleIdentifier == Tune.bundleID
+/// PIDs of the running iPhone Mirroring process(es), looked up once per scan.
+/// Matches the bundle ID, never kCGWindowOwnerName, which is localized.
+func mirroringPIDs() -> Set<Int> {
+    Set(NSRunningApplication.runningApplications(withBundleIdentifier: Tune.bundleID)
+        .map { Int($0.processIdentifier) })
 }
 
 /// Frame of the mirroring window in global points, or nil if it is not open.
 func mirroringWindowFrame() -> WindowFrame? {
     guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
     else { return nil }
+    let pids = mirroringPIDs()
+    guard !pids.isEmpty else { return nil }
     for win in list {
-        guard isMirroringWindow(win),
+        guard let pid = win[kCGWindowOwnerPID as String] as? Int, pids.contains(pid),
               let num = win[kCGWindowNumber as String] as? Int,
               let b = win[kCGWindowBounds as String] as? [String: CGFloat]
         else { continue }

@@ -7,19 +7,24 @@ guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindow
     exit(1)
 }
 
+// Resolve the Mirroring PID(s) once; matching by bundle ID because
+// kCGWindowOwnerName is localized (for example, `iPhoneミラーリング`
+// with Japanese as the macOS display language).
+let mirroringPIDs = Set(
+    NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.ScreenContinuity")
+        .map { Int($0.processIdentifier) }
+)
+
 for win in list {
-    // kCGWindowOwnerName is localized (for example, `iPhoneミラーリング`
-    // with Japanese as the macOS display language). Identify the application
-    // by its stable bundle identifier instead of its user-visible name.
-    guard let ownerPID = win["kCGWindowOwnerPID"] as? NSNumber,
-          let application = NSRunningApplication(processIdentifier: ownerPID.int32Value),
-          application.bundleIdentifier == "com.apple.ScreenContinuity" else { continue }
+    guard let ownerPID = win["kCGWindowOwnerPID"] as? Int, mirroringPIDs.contains(ownerPID) else { continue }
     let num = win["kCGWindowNumber"] as? Int ?? 0
     let bounds = win["kCGWindowBounds"] as? [String: Any] ?? [:]
     let winX = bounds["X"] as? CGFloat ?? 0
     let winY = bounds["Y"] as? CGFloat ?? 0
     let winWidth = bounds["Width"] as? CGFloat ?? 0
     let winHeight = bounds["Height"] as? CGFloat ?? 0
+    // Skip tiny helper windows (menu bar extras, shadows), same filter as the other sites.
+    guard winWidth > 100, winHeight > 100 else { continue }
     // Global top-left coordinates; negative on displays left of / above the primary.
     // Rounded to integers: bash arithmetic downstream cannot handle fractional origins.
     // Scale is NOT detected here: find-window.sh measures it from the actual capture,

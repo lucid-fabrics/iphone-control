@@ -1,11 +1,11 @@
 import CoreGraphics
 import AppKit
 
-/// True when a CGWindowList entry belongs to iPhone Mirroring. Matches the owner's
-/// bundle ID, never kCGWindowOwnerName, which is localized (e.g. Japanese macOS).
-func isMirroringWindow(_ info: [String: Any]) -> Bool {
-    guard let pid = info[kCGWindowOwnerPID as String] as? Int else { return false }
-    return NSRunningApplication(processIdentifier: pid_t(pid))?.bundleIdentifier == Constants.iphoneMirroringBundleId
+/// PIDs of the running iPhone Mirroring process(es), looked up once per window scan.
+/// Matches the bundle ID, never kCGWindowOwnerName, which is localized (e.g. Japanese macOS).
+func mirroringPIDs() -> Set<Int> {
+    Set(NSRunningApplication.runningApplications(withBundleIdentifier: Constants.iphoneMirroringBundleId)
+        .map { Int($0.processIdentifier) })
 }
 
 class WindowManager {
@@ -26,8 +26,9 @@ class WindowManager {
             return nil
         }
 
+        let pids = mirroringPIDs()
         for window in windowList {
-            guard isMirroringWindow(window),
+            guard let pid = window[kCGWindowOwnerPID as String] as? Int, pids.contains(pid),
                   let bounds = window[kCGWindowBounds as String] as? [String: Any],
                   let x = numericValue(bounds["X"]),
                   let y = numericValue(bounds["Y"]),
