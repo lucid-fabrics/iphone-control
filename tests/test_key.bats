@@ -158,3 +158,40 @@ STUB
     [[ "$output" == *"CGEventCreateKeyboardEvent(kSrc, ${exp_code}"* ]]
     [[ "$output" == *"kCGEventFlagMaskCommand"* ]]
 }
+
+# --- Keypad exclusion (digits must resolve to the main row on every layout) ---
+# iPhone Mirroring forwards raw virtual keycodes, so Cmd+1/2/3 and digit typing
+# must never land on a number-pad key. On AZERTY the main-row digits need Shift,
+# which used to let the keypad "1" win the scan. INPUT_LAYOUT_ID selects an
+# installed layout for the query only; system settings are not touched.
+
+KEYPAD_CODES=" 65 67 69 75 78 81 82 83 84 85 86 87 88 89 91 92 "
+
+assert_digits_off_keypad() {
+    local engine="$PROJECT_ROOT/helpers/input" d out code
+    for d in 0 1 2 3 4 5 6 7 8 9; do
+        out=$("$engine" keyfor "$d") || { echo "keyfor $d failed"; return 1; }
+        code="${out%% *}"
+        if [[ "$KEYPAD_CODES" == *" $code "* ]]; then
+            echo "digit $d resolved to keypad keycode $code"
+            return 1
+        fi
+    done
+}
+
+@test "native keyfor: digits never resolve to keypad keycodes (current layout)" {
+    [ -x "$PROJECT_ROOT/helpers/input" ] || skip "native engine not built"
+    assert_digits_off_keypad
+}
+
+@test "native keyfor: AZERTY digits use the main row with Shift" {
+    local engine="$PROJECT_ROOT/helpers/input"
+    [ -x "$engine" ] || skip "native engine not built"
+    export INPUT_LAYOUT_ID="com.apple.keylayout.French"
+    run "$engine" keyfor 1
+    [ "$status" -eq 0 ] || skip "French layout not installed"
+    read -r code flags <<< "$output"
+    [ "$code" -eq 18 ]
+    [ "$flags" -ne 0 ]
+    assert_digits_off_keypad
+}
