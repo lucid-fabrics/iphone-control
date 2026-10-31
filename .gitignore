@@ -10,3 +10,4 @@ xcuserdata/
 tests/live/results/
 helpers/input
 helpers/event-logger
+helpers/stitch-pages

@@ -248,6 +248,56 @@ dismiss_overlay() {
     "$ROOT/wait.sh" still --timeout 3 > /dev/null 2>&1 || true
 }
 
+# Whole-list read on the Settings root list: both ends present, more than one
+# page stitched, no duplicate rows, and the scroll-back restores the start view.
+t_read_all() {
+    "$ROOT/open-app.sh" "Settings" > /dev/null 2>&1 || { echo "could not open Settings"; return 1; }
+    "$ROOT/wait.sh" still --timeout 4 > /dev/null 2>&1 || true
+    # Settings reopens on its last subpage; walk back to the root list.
+    local i
+    for (( i = 0; i < 3; i++ )); do
+        "$ROOT/tap-text.sh" "General" --dry > /dev/null 2>&1 && break
+        "$ROOT/back.sh" > /dev/null 2>&1
+        "$ROOT/wait.sh" still --timeout 3 > /dev/null 2>&1 || true
+    done
+
+    local json rc=0
+    json=$("$ROOT/read-all.sh" --from-top --json) || { echo "read-all failed"; rc=1; }
+    "$ROOT/screenshot.sh" "$TMP/ra-top.png" > /dev/null
+    if (( rc == 0 )); then
+        local verdict
+        verdict=$(python3 - "$json" << 'PYEOF'
+import json, sys
+rows = json.loads(sys.argv[1])
+content = [r for r in rows if not r["fixed"]]
+problems = []
+if not any(r["text"].startswith("General") for r in content):
+    problems.append("no General row")
+if not any("Privacy" in r["text"] for r in content):
+    problems.append("no Privacy row (bottom of list not reached)")
+if max((r["page"] for r in content), default=0) < 1:
+    problems.append("only one page stitched")
+for i, a in enumerate(content):
+    for b in content[i + 1:]:
+        if a["text"].lower() == b["text"].lower() and abs(a["y_abs"] - b["y_abs"]) <= 8:
+            problems.append(f"duplicate row {a['text']!r}")
+print("; ".join(problems) if problems else "ok")
+PYEOF
+)
+        [[ "$verdict" == "ok" ]] || { echo "$verdict"; rc=1; }
+    fi
+    # Second pass starting at the top without --from-top: it must scroll back
+    # to the exact view it started from.
+    if (( rc == 0 )); then
+        "$ROOT/read-all.sh" > /dev/null || { echo "second read-all failed"; rc=1; }
+        "$ROOT/screenshot.sh" "$TMP/ra-after.png" > /dev/null
+        screens_match "$TMP/ra-top.png" "$TMP/ra-after.png" || { echo "scroll-back did not restore the start view"; rc=1; }
+    fi
+    "$ROOT/iphone-control.sh" home > /dev/null 2>&1
+    "$ROOT/wait.sh" still --timeout 4 > /dev/null 2>&1 || true
+    return "$rc"
+}
+
 # Reset leaked UI state so one failing test cannot cascade: dismiss any context
 # menu, exit jiggle mode if Edit/Done chrome is up, and force the home screen to
 # page 1 (a stray swipe can strand us on Today View, which is left of page 1).
@@ -283,6 +333,7 @@ for (( ITER = 1; ITER <= ITERATIONS; ITER++ )); do
     run_test double-tap      t_double_tap
     run_test ocr-find        t_ocr_find
     run_test read-screen     t_read_screen
+    run_test read-all        t_read_all
     run_test wait-still      t_wait_still
     run_test wait-text       t_wait_text
     run_test long-press      t_long_press
