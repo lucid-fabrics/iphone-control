@@ -46,6 +46,13 @@ All commands go through `iphone-control.sh`:
 ./iphone-control.sh read --json               # machine-readable
 ./iphone-control.sh read --at 180 400         # what is at this point
 
+# Read a WHOLE scrolling list in one call (Settings, a chat, a long page):
+# scrolls through, stitches the pages, de-duplicates, scrolls back.
+# Rows carry their list position (y_abs), not a tap point: act on one with scroll-to.
+./iphone-control.sh read --all                # from the current position
+./iphone-control.sh read --all --from-top --json
+./iphone-control.sh scroll-to "Privacy & Security" --tap
+
 # Wait for a condition instead of sleeping a guess - faster AND more reliable
 ./iphone-control.sh wait text "Settings"      # until it appears
 ./iphone-control.sh wait gone "Loading"       # until it disappears

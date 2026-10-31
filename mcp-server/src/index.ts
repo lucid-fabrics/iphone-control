@@ -199,10 +199,19 @@ server.tool(
   "Read all text currently on the iPhone screen with tappable center coordinates. This is the inspection channel (there is no accessibility tree through mirroring). Lines below OCR confidence 0.6 are already filtered out. Format: 'cx,cy  text' per line, coordinates ready to pass to tap.",
   {
     grep: z.string().optional().describe("Only lines whose text matches this case-insensitive regex"),
+    all: z.boolean().optional().describe("Read the WHOLE scrolling list, not just the visible screen: scrolls through it, OCRs each page, stitches them into one de-duplicated top-to-bottom list, then scrolls back. Use this instead of repeated scroll + read_screen. Output is 'y_abs  text' where y_abs is the position in the list, NOT a tap coordinate: act on a row with scroll_to(text, tap=true). Chrome that never scrolls (status bar, nav title) is listed as 'fixed'."),
+    from_top: z.boolean().optional().describe("With all: scroll to the top of the list first (default: start from the current position)"),
+    max_pages: z.number().int().min(1).max(40).optional().describe("With all: stop after this many pages (default 15)"),
   },
-  async ({ grep }) => {
+  async ({ grep, all, from_top, max_pages }) => {
     const args: string[] = [];
     if (grep !== undefined) args.push("--grep", grep);
+    if (all) {
+      if (from_top) args.push("--from-top");
+      if (max_pages !== undefined) args.push("--max", String(max_pages));
+      const { stdout } = await runScript("read-all.sh", args, TIMEOUT_SCAN);
+      return { content: [{ type: "text", text: stdout || "(no text detected in the list)" }] };
+    }
     const { stdout } = await runScript("read.sh", args);
     return { content: [{ type: "text", text: stdout || "(no text detected on screen)" }] };
   }

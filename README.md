@@ -257,6 +257,7 @@ Add to `.claude/settings.json`:
 | `tap` | `x, y` | Confirmation text |
 | `swipe` | `x1, y1, x2, y2, duration_ms?` | Confirmation text |
 | `type_text` | `text, x?, y?` | Confirmation text |
+| `read_screen` | `grep?, all?, from_top?, max_pages?` | Visible text with tap coordinates; with `all`, the whole scrolling list stitched into one de-duplicated list |
 | `open_app` | `name, method?` | Opens app. `method`: `"auto"` (default, registry-first) or `"spotlight"` |
 | `home` | - | Go to home screen |
 | `app_switcher` | - | Open app switcher |

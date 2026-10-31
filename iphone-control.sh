@@ -10,6 +10,7 @@
 #   press <x> <y> [hold_ms]      - Long press (context menu, edit mode, selection)
 #   double-tap <x> <y>           - Double tap (zoom toggle, word select)
 #   read [--grep p] [--at x y]   - Read on-screen text with tappable coordinates
+#   read --all [--from-top] ...  - Read a whole scrolling list, stitched (read-all.sh)
 #   wait <text|gone|still> ...   - Wait for a screen condition (not a fixed sleep)
 #   back                         - Navigate back (edge swipe)
 #   key <key> [--cmd ...]        - Send a key press
@@ -80,7 +81,12 @@ case "$cmd" in
         echo "Double tapped ($1, $2)"
         ;;
     read)
-        "$SCRIPT_DIR/read.sh" "$@"
+        if [[ "${1:-}" == "--all" ]]; then
+            shift
+            "$SCRIPT_DIR/read-all.sh" "$@"
+        else
+            "$SCRIPT_DIR/read.sh" "$@"
+        fi
         ;;
     wait)
         "$SCRIPT_DIR/wait.sh" "$@"
@@ -172,6 +178,7 @@ case "$cmd" in
         echo "  press <x> <y> [hold_ms]           Long press (context menu, edit mode)"
         echo "  double-tap <x> <y>                Double tap (zoom toggle, word select)"
         echo "  read [--grep p] [--at x y] [--json]  Read on-screen text + coordinates"
+        echo "  read --all [--from-top] [--max N] [--stay] [--json] [--grep p]  Read a whole scrolling list"
         echo "  wait text|gone <s> | still        Wait for a condition, not a fixed sleep"
         echo "  back [--swipe]                    Navigate back"
         echo "  key <key> [--cmd --shift ...]     Send a key press"
